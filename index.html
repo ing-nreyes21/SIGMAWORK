@@ -130,10 +130,10 @@ document.head.appendChild(fl);
 
 // ─── GLOBAL CSS ─────────────────────────────────────────────────
 const gs = document.createElement("style");
-gs.textContent = `
+gs.textContent = "
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{background:${T.bg};color:${T.textPrimary};font-family:'Inter',sans-serif;overflow-x:hidden;}
-  ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:${T.surface};}::-webkit-scrollbar-thumb{background:${T.border};border-radius:2px;}
+  body{background:" + (T.bg) + ";color:" + (T.textPrimary) + ";font-family:'Inter',sans-serif;overflow-x:hidden;}
+  ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:" + (T.surface) + ";}::-webkit-scrollbar-thumb{background:" + (T.border) + ";border-radius:2px;}
   @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
   @keyframes modalIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
   @keyframes bdIn{from{opacity:0}to{opacity:1}}
@@ -141,43 +141,43 @@ gs.textContent = `
   .fade-in{animation:fadeIn .25s ease forwards;}
   button{cursor:pointer;border:none;background:none;font-family:'Inter',sans-serif;}
   input,select,textarea{font-family:'Inter',sans-serif;}
-  .inf{width:100%;background:${T.bg};border:1px solid ${T.border};border-radius:7px;padding:10px 13px;color:${T.textPrimary};font-size:13px;outline:none;transition:border-color .18s,box-shadow .18s;}
-  .inf:focus{border-color:${T.green};box-shadow:0 0 0 3px ${T.greenGlow};}
-  .inf::placeholder{color:${T.textMuted};}
-  select.inf option{background:${T.surface};}
-  .bp{background:linear-gradient(135deg,${T.green},${T.greenDark});color:#fff;font-family:'Work Sans',sans-serif;font-weight:700;font-size:13px;padding:9px 20px;border-radius:7px;transition:opacity .18s,transform .15s;display:inline-flex;align-items:center;gap:7px;letter-spacing:.02em;}
+  .inf{width:100%;background:" + (T.bg) + ";border:1px solid " + (T.border) + ";border-radius:7px;padding:10px 13px;color:" + (T.textPrimary) + ";font-size:13px;outline:none;transition:border-color .18s,box-shadow .18s;}
+  .inf:focus{border-color:" + (T.green) + ";box-shadow:0 0 0 3px " + (T.greenGlow) + ";}
+  .inf::placeholder{color:" + (T.textMuted) + ";}
+  select.inf option{background:" + (T.surface) + ";}
+  .bp{background:linear-gradient(135deg," + (T.green) + "," + (T.greenDark) + ");color:#fff;font-family:'Work Sans',sans-serif;font-weight:700;font-size:13px;padding:9px 20px;border-radius:7px;transition:opacity .18s,transform .15s;display:inline-flex;align-items:center;gap:7px;letter-spacing:.02em;}
   .bp:hover{opacity:.9;transform:translateY(-1px);}
   .bp:disabled{opacity:.3;pointer-events:none;}
-  .bg2{background:transparent;color:${T.textSecondary};font-size:13px;padding:9px 16px;border-radius:7px;border:1px solid ${T.border};transition:all .18s;}
-  .bg2:hover{border-color:${T.borderLight};color:${T.textPrimary};background:${T.surfaceAlt};}
-  .ab{padding:5px 10px;font-size:11px;border-radius:5px;border:1px solid ${T.border};color:${T.textSecondary};background:transparent;transition:all .15s;}
-  .ab:hover{border-color:${T.borderLight};color:${T.textPrimary};background:${T.surfaceAlt};}
-  .ab.d:hover{border-color:${T.red}50;color:${T.red};background:${T.redDim};}
-  .card{background:${T.surface};border:1px solid ${T.border};border-radius:11px;}
+  .bg2{background:transparent;color:" + (T.textSecondary) + ";font-size:13px;padding:9px 16px;border-radius:7px;border:1px solid " + (T.border) + ";transition:all .18s;}
+  .bg2:hover{border-color:" + (T.borderLight) + ";color:" + (T.textPrimary) + ";background:" + (T.surfaceAlt) + ";}
+  .ab{padding:5px 10px;font-size:11px;border-radius:5px;border:1px solid " + (T.border) + ";color:" + (T.textSecondary) + ";background:transparent;transition:all .15s;}
+  .ab:hover{border-color:" + (T.borderLight) + ";color:" + (T.textPrimary) + ";background:" + (T.surfaceAlt) + ";}
+  .ab.d:hover{border-color:" + (T.red) + "50;color:" + (T.red) + ";background:" + (T.redDim) + ";}
+  .card{background:" + (T.surface) + ";border:1px solid " + (T.border) + ";border-radius:11px;}
   .ch{transition:border-color .18s,transform .18s,box-shadow .18s;}
-  .ch:hover{border-color:${T.borderLight};transform:translateY(-2px);box-shadow:0 8px 28px #00000060;}
+  .ch:hover{border-color:" + (T.borderLight) + ";transform:translateY(-2px);box-shadow:0 8px 28px #00000060;}
   .tb{padding:9px 16px;font-size:13px;font-weight:500;background:transparent;border:none;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;}
-  .tb.on{color:${T.green};border-bottom-color:${T.green};}
-  .tb:not(.on){color:${T.textSecondary};}
-  .tb:not(.on):hover{color:${T.textPrimary};}
-  .fl2{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:${T.textMuted};letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px;}
-  .rh:hover{background:${T.surfaceHover};}
+  .tb.on{color:" + (T.green) + ";border-bottom-color:" + (T.green) + ";}
+  .tb:not(.on){color:" + (T.textSecondary) + ";}
+  .tb:not(.on):hover{color:" + (T.textPrimary) + ";}
+  .fl2{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:" + (T.textMuted) + ";letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px;}
+  .rh:hover{background:" + (T.surfaceHover) + ";}
   .tag{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.06em;padding:3px 8px;border-radius:4px;text-transform:uppercase;}
-  .divider{height:1px;background:${T.border};margin:20px 0;}
+  .divider{height:1px;background:" + (T.border) + ";margin:20px 0;}
   .nav-btn{width:100%;display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:7px;margin-bottom:2px;border:1px solid transparent;transition:all .15s;}
-  .nav-btn:hover span{color:${T.green};}
-  .nav-btn.active{background:${T.greenDim};border-color:${T.greenGlow};}
-  .nav-btn.active span{color:${T.green};}
+  .nav-btn:hover span{color:" + (T.green) + ";}
+  .nav-btn.active{background:" + (T.greenDim) + ";border-color:" + (T.greenGlow) + ";}
+  .nav-btn.active span{color:" + (T.green) + ";}
   .tree-btn{width:100%;display:flex;align-items:center;gap:8px;background:transparent;border:none;transition:all .15s;text-align:left;}
-  .tree-btn:hover span{color:${T.textPrimary};}
-`;
+  .tree-btn:hover span{color:" + (T.textPrimary) + ";}
+";
 document.head.appendChild(gs);
 
 // ─── UTILS ──────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 9);
 const fmt = {
   currency: n => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 0 }).format(n || 0),
-  pct: n => `${(n || 0).toFixed(1)}%`,
+  pct: n => ((n || 0).toFixed(1)) + "%",
   date: s => s ? new Date(s + "T12:00:00").toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" }) : "—",
   num: s => parseFloat(String(s || 0).replace(/,/g, "")) || 0,
 };
@@ -381,8 +381,8 @@ function AlertBox({ msg, color = T.red, bg }) {
 // ─── FORMS ───────────────────────────────────────────────────────
 function FObra({ data, onSave, onClose, ctx }) {
   const allP = [];
-  data.unidades.forEach(u => u.plazas.forEach(p => allP.push({ value: `${u.id}|${p.id}`, label: `${u.nombre} → ${p.nombre}` })));
-  const [f, setF] = useState({ nombre: "", plazaKey: ctx ? `${ctx.unidadId}|${ctx.plazaId}` : "", presupuestoAutorizado: "", estado: "planeacion" });
+  data.unidades.forEach(u => u.plazas.forEach(p => allP.push({ value: (u.id) + "|" + (p.id), label: (u.nombre) + " → " + (p.nombre) })));
+  const [f, setF] = useState({ nombre: "", plazaKey: ctx ? (ctx.unidadId) + "|" + (ctx.plazaId) : "", presupuestoAutorizado: "", estado: "planeacion" });
   const s = (k, v) => setF(x => ({ ...x, [k]: v }));
   const ok = f.nombre && f.plazaKey && f.presupuestoAutorizado;
   function save() {
@@ -435,7 +435,7 @@ function FParam({ obra, onSave, onClose }) {
         Techo autorizado: <Mn color={T.green} size={12}>{fmt.currency(obra.presupuestoAutorizado)}</Mn>
       </div>
       <Grid3>
-        <Field label="Clase AACE" req><Sel value={f.clase} onChange={v => s("clase", v)} options={[5, 4, 3, 2, 1].map(c => ({ value: c, label: `Clase ${c}` }))} /></Field>
+        <Field label="Clase AACE" req><Sel value={f.clase} onChange={v => s("clase", v)} options={[5, 4, 3, 2, 1].map(c => ({ value: c, label: "Clase " + (c) }))} /></Field>
         <Field label="Monto (MXN)" req><Inp value={f.monto} onChange={v => s("monto", v)} type="number" placeholder="0" /></Field>
         <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
       </Grid3>
@@ -482,7 +482,7 @@ function FContrato({ obra, onSave, onClose, edit }) {
 
   return (
     <Modal title={edit ? "Editar Contrato" : "Nuevo Contrato"} onClose={onClose} wide>
-      {sob && <AlertBox msg={`Este contrato genera sobrecosto de ${fmt.currency(proy - fmt.num(obra.presupuestoAutorizado))} sobre el techo autorizado`} />}
+      {sob && <AlertBox msg={"Este contrato genera sobrecosto de " + (fmt.currency(proy - fmt.num(obra.presupuestoAutorizado))) + " sobre el techo autorizado"} />}
       <SectionTitle>Datos Generales</SectionTitle>
       <Grid2>
         <Field label="Número de Contrato" req><Inp value={f.numero} onChange={v => s("numero", v)} placeholder="CT-2024-001" /></Field>
@@ -497,7 +497,7 @@ function FContrato({ obra, onSave, onClose, edit }) {
       <SectionTitle>Condiciones Financieras</SectionTitle>
       <Grid3>
         <Field label="Monto Original (MXN)" req><Inp value={f.montoOriginal} onChange={v => s("montoOriginal", v)} type="number" placeholder="0" /></Field>
-        <Field label="Anticipo (%)" hint={m ? `= ${fmt.currency(ant)}` : ""}><Inp value={f.anticipoPct} onChange={v => s("anticipoPct", v)} type="number" min="0" placeholder="20" /></Field>
+        <Field label="Anticipo (%)" hint={m ? "= " + (fmt.currency(ant)) : ""}><Inp value={f.anticipoPct} onChange={v => s("anticipoPct", v)} type="number" min="0" placeholder="20" /></Field>
         <Field label="Retención Garantía (%)"><Inp value={f.retencionPct} onChange={v => s("retencionPct", v)} type="number" min="0" placeholder="5" /></Field>
       </Grid3>
       {m > 0 && (
@@ -520,7 +520,7 @@ function FContrato({ obra, onSave, onClose, edit }) {
       {f.partidas.map((p, pi) => (
         <div key={p.id} style={{ background: T.surfaceAlt, border: "1px solid " + T.border, borderRadius: 9, marginBottom: 10, overflow: "hidden" }}>
           <div style={{ padding: "11px 14px", display: "flex", gap: 10, alignItems: "center", borderBottom: "1px solid " + T.border }}>
-            <input className="inf" value={p.nombre} onChange={e => upP(p.id, "nombre", e.target.value)} placeholder={`Partida ${pi + 1}`} style={{ flex: 1, fontSize: 13, fontWeight: 600 }} />
+            <input className="inf" value={p.nombre} onChange={e => upP(p.id, "nombre", e.target.value)} placeholder={"Partida " + (pi + 1)} style={{ flex: 1, fontSize: 13, fontWeight: 600 }} />
             <button className="ab d" onClick={() => delP(p.id)}>✕</button>
           </div>
           {p.conceptos.length > 0 && (
@@ -573,7 +573,7 @@ function DetalleConvenio({convenio,contrato,onClose}){
   const clasifColors={modificacion:T.blue,omision:T.yellow,situacion_fisica:T.orange,mala_ejecucion:T.red};
   const clasifLabels={modificacion:"Modificación de Proyecto",omision:"Omisión de Proyecto",situacion_fisica:"Situación Física de Obra",mala_ejecucion:"Mala Ejecución"};
   return(
-    <Modal title={`Convenio #${convenio.numero} — Detalle`} onClose={onClose} wide>
+    <Modal title={"Convenio #" + (convenio.numero) + " — Detalle"} onClose={onClose} wide>
       {/* Header clasificación */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,padding:"16px",background:"#080818",borderRadius:10,border:"1px solid #1E1E50"}}>
         <div>
@@ -591,7 +591,7 @@ function DetalleConvenio({convenio,contrato,onClose}){
       {/* Clasificación */}
       <div style={{marginBottom:20}}>
         <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Clasificación</div>
-        <div style={{display:"inline-flex",alignItems:"center",gap:8,background:`${clasifColors[convenio.clasificacion]}18`,border:`1px solid ${clasifColors[convenio.clasificacion]}40`,borderRadius:8,padding:"8px 14px"}}>
+        <div style={{display:"inline-flex",alignItems:"center",gap:8,background:(clasifColors[convenio.clasificacion]) + "18",border:"1px solid " + (clasifColors[convenio.clasificacion]) + "40",borderRadius:8,padding:"8px 14px"}}>
           <span style={{width:8,height:8,borderRadius:"50%",background:clasifColors[convenio.clasificacion],display:"inline-block",boxShadow:"0 0 6px " + clasifColors[convenio.clasificacion]}}/>
           <span style={{fontFamily:"Work Sans",fontWeight:600,fontSize:14,color:clasifColors[convenio.clasificacion]}}>{clasifLabels[convenio.clasificacion]||convenio.clasificacion}</span>
         </div>
@@ -660,7 +660,7 @@ function FDeductiva({ contrato, obra, onSave, onClose }) {
     const num = fmt.num(val);
     const newErr = { ...errores };
     if (num > disponible) {
-      newErr[cid] = `Máximo deducible: ${disponible.toLocaleString()} ${concepto.unidad}. (${fmt.num(concepto.cantContratada).toLocaleString()} contratadas − ${cantDeducidaConcepto(contrato, cid).toLocaleString()} ya deducidas)`;
+      newErr[cid] = "Máximo deducible: " + (disponible.toLocaleString()) + " " + (concepto.unidad) + ". (" + (fmt.num(concepto.cantContratada).toLocaleString()) + " contratadas − " + (cantDeducidaConcepto(contrato, cid).toLocaleString()) + " ya deducidas)";
     } else {
       delete newErr[cid];
     }
@@ -690,7 +690,7 @@ function FDeductiva({ contrato, obra, onSave, onClose }) {
   }
 
   return (
-    <Modal title={`Deductiva #${numeroSig} — ${contrato.contratista}`} onClose={onClose} wide>
+    <Modal title={"Deductiva #" + (numeroSig) + " — " + (contrato.contratista)} onClose={onClose} wide>
       {/* Alerta info */}
       <div style={{ background: "rgba(240,180,41,.08)", border: "1px solid rgba(240,180,41,.3)", borderRadius: 8, padding: "10px 16px", marginBottom: 18, display: "flex", gap: 10, alignItems: "flex-start" }}>
         <span style={{ color: "#F0B429", fontSize: 15, marginTop: 1 }}>⚠</span>
@@ -745,7 +745,7 @@ function FDeductiva({ contrato, obra, onSave, onClose }) {
                       <td style={{ padding: "10px 12px", color: "#7A92B5", fontSize: 11 }}>{c.partidaNombre}</td>
                       <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11 }}>{fmt.num(c.cantContratada).toLocaleString()} {c.unidad}</td>
                       <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: yaDeducido > 0 ? "#F0B429" : "#5A6A90" }}>{yaDeducido > 0 ? yaDeducido.toLocaleString() : "—"}</td>
-                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: disponible <= 0 ? "#E8344A" : "#00A86B", fontWeight: 600 }}>{disponible <= 0 ? "AGOTADO" : `${disponible.toLocaleString()} ${c.unidad}`}</td>
+                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: disponible <= 0 ? "#E8344A" : "#00A86B", fontWeight: 600 }}>{disponible <= 0 ? "AGOTADO" : (disponible.toLocaleString()) + " " + (c.unidad)}</td>
                       <td style={{ padding: "10px 10px", width: 110 }}>
                         {disponible <= 0 ? (
                           <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#E8344A", padding: "5px 8px" }}>—</div>
@@ -756,7 +756,7 @@ function FDeductiva({ contrato, obra, onSave, onClose }) {
                         )}
                       </td>
                       <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 12, color: qty > 0 ? "#00A86B" : "#5A6A90" }}>
-                        {qty > 0 ? `- ${fmt.currency(montoConc)}` : "—"}
+                        {qty > 0 ? "- " + (fmt.currency(montoConc)) : "—"}
                       </td>
                     </tr>
                     {error && (
@@ -792,7 +792,7 @@ function FDeductiva({ contrato, obra, onSave, onClose }) {
         </div>
       )}
 
-      <MFooter onClose={onClose} onSave={save} label={`Registrar Deductiva #${numeroSig}`} disabled={!ok} />
+      <MFooter onClose={onClose} onSave={save} label={"Registrar Deductiva #" + (numeroSig)} disabled={!ok} />
     </Modal>
   );
 }
@@ -800,7 +800,7 @@ function FDeductiva({ contrato, obra, onSave, onClose }) {
 // ── DETALLE DEDUCTIVA MODAL ──────────────────────────────────────
 function DetalleDeductiva({ deductiva, contrato, onClose }) {
   return (
-    <Modal title={`Deductiva #${deductiva.numero} — Detalle`} onClose={onClose} wide>
+    <Modal title={"Deductiva #" + (deductiva.numero) + " — Detalle"} onClose={onClose} wide>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, marginBottom: 20, padding: "16px", background: "#080818", borderRadius: 10, border: "1px solid #1E1E50" }}>
         <div>
           <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Contrato</div>
@@ -871,8 +871,8 @@ function FConvenio({ contrato, obra, onSave, onClose }) {
   const sob = proyO > fmt.num(obra.presupuestoAutorizado);
   const ok = f.fecha && f.justificacion && f.clasificacion && f.montoDelta;
   return (
-    <Modal title={`Convenio #${f.numero} — ${contrato.contratista}`} onClose={onClose} wide>
-      {sob && <ABox msg={`Sobrecosto de ${fmt.currency(proyO - fmt.num(obra.presupuestoAutorizado))} sobre el techo`} />}
+    <Modal title={"Convenio #" + (f.numero) + " — " + (contrato.contratista)} onClose={onClose} wide>
+      {sob && <ABox msg={"Sobrecosto de " + (fmt.currency(proyO - fmt.num(obra.presupuestoAutorizado))) + " sobre el techo"} />}
       <G2>
         <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
         <Field label="Clasificación" req>
@@ -936,15 +936,15 @@ function FEstimacion({ contrato, onSave, onClose }) {
     onSave({ ...f, conceptos, subtotal, amortizacionAnticipo: fmt.num(f.amortizacionAnticipo), retencion: fmt.num(f.retencion), id: uid() });
   }
   return (
-    <Modal title={`Estimación #${numSig} — ${contrato.contratista}`} onClose={onClose} wide>
+    <Modal title={"Estimación #" + (numSig) + " — " + (contrato.contratista)} onClose={onClose} wide>
       <Grid3>
         <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
         <Field label="Período" req><Inp value={f.periodo} onChange={v => s("periodo", v)} placeholder="Ej. Julio 2024" /></Field>
         <Field label="Status"><Sel value={f.status} onChange={v => s("status", v)} options={STATUS_E.map(x => ({ value: x, label: x.charAt(0).toUpperCase() + x.slice(1) }))} /></Field>
       </Grid3>
       <Grid2>
-        <Field label="Amortización Anticipo (%)" hint={`= ${fmt.currency(amort)}`}><Inp value={f.amortizacionAnticipo} onChange={v => s("amortizacionAnticipo", v)} type="number" min="0" /></Field>
-        <Field label="Retención de Garantía (%)" hint={`= ${fmt.currency(ret)}`}><Inp value={f.retencion} onChange={v => s("retencion", v)} type="number" min="0" /></Field>
+        <Field label="Amortización Anticipo (%)" hint={"= " + (fmt.currency(amort))}><Inp value={f.amortizacionAnticipo} onChange={v => s("amortizacionAnticipo", v)} type="number" min="0" /></Field>
+        <Field label="Retención de Garantía (%)" hint={"= " + (fmt.currency(ret))}><Inp value={f.retencion} onChange={v => s("retencion", v)} type="number" min="0" /></Field>
       </Grid2>
       <div className="divider" />
       <SectionTitle>Cantidades Ejecutadas Esta Estimación</SectionTitle>
@@ -982,7 +982,7 @@ function FEstimacion({ contrato, onSave, onClose }) {
         </div>
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, padding: "13px", background: T.surfaceAlt, borderRadius: 9, border: "1px solid " + T.border }}>
-        {[{ l: "Subtotal Bruto", v: fmt.currency(subtotal), c: T.textPrimary }, { l: "Amortización", v: `- ${fmt.currency(amort)}`, c: T.yellow }, { l: "Retención", v: `- ${fmt.currency(ret)}`, c: T.orange }, { l: "Neto a Pagar", v: fmt.currency(neto), c: T.green }].map((k, i) => (
+        {[{ l: "Subtotal Bruto", v: fmt.currency(subtotal), c: T.textPrimary }, { l: "Amortización", v: "- " + (fmt.currency(amort)), c: T.yellow }, { l: "Retención", v: "- " + (fmt.currency(ret)), c: T.orange }, { l: "Neto a Pagar", v: fmt.currency(neto), c: T.green }].map((k, i) => (
           <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 5, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.c} size={14}>{k.v}</Mn></div>
         ))}
       </div>
@@ -1004,7 +1004,7 @@ function Sidebar({ view, setView, data, onAddPlaza, onAddObra }) {
       {/* Main nav */}
       <div style={{ padding: "10px 10px 0" }}>
         {[{ id: "dashboard", label: "Dashboard", icon: "▣" }, { id: "portafolio", label: "Portafolio", icon: "◈" }].map(item => (
-          <button key={item.id} className={`nav-btn ${view.type === item.id ? "active" : ""}`} onClick={() => setView({ type: item.id })}>
+          <button key={item.id} className={"nav-btn " + (view.type === item.id ? "active" : "")} onClick={() => setView({ type: item.id })}>
             <span style={{ fontSize: 12, color: view.type === item.id ? T.green : T.textMuted }}>{item.icon}</span>
             <span style={{ fontSize: 13, fontWeight: 500, color: view.type === item.id ? T.green : T.textSecondary }}>{item.label}</span>
           </button>
@@ -1083,13 +1083,13 @@ function Dashboard({ data }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 26 }}>
         <div>
           <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 24, letterSpacing: "-0.01em", marginBottom: 3 }}>Dashboard General</div>
-          <div style={{ color: "#6A7DA0", fontSize: 13 }}>Portafolio consolidado · {obras.length} obras{filtroAño !== "todos" ? ` · Año ${filtroAño}` : ""} · {data.unidades.length} unidades</div>
+          <div style={{ color: "#6A7DA0", fontSize: 13 }}>Portafolio consolidado · {obras.length} obras{filtroAño !== "todos" ? " · Año " + (filtroAño) : ""} · {data.unidades.length} unidades</div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5", marginRight: 4, letterSpacing: "0.08em", textTransform: "uppercase" }}>Año:</span>
           {["todos", ...añosDisponibles.map(String)].map(a => (
             <button key={a} onClick={() => setFiltroAño(a)}
-              style={{ fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "6px 14px", borderRadius: 6, border: `1px solid $<option value="todos">Todos los años</option>
+              style={{ fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "6px 14px", borderRadius: 6, border: '1px solid $<option value="todos">Todos los años</option>
             {añosDisponibles.map(a => <option key={a} value={String(a)}>{a}</option>)}
           </select>
         </div>
@@ -1236,7 +1236,7 @@ function FCambioAño({obra,onSave,onClose}){
   const ok=f.añoNuevo&&f.fecha&&f.motivo&&parseInt(f.añoNuevo)!==añoActual;
   const años=[2023,2024,2025,2026,2027,2028,2029,2030].filter(y=>y!==añoActual);
   return(
-    <Modal title={`Cambio de Año — ${obra.nombre}`} onClose={onClose}>
+    <Modal title={'Cambio de Año — ${obra.nombre}'} onClose={onClose}>
       <div style={{background:"rgba(240,180,41,.08)",border:"1px solid rgba(240,180,41,.3)",borderRadius:8,padding:"12px 16px",marginBottom:18,display:"flex",gap:10,alignItems:"flex-start"}}>
         <span style={{color:"#F0B429",fontSize:16}}>⚡</span>
         <div>
@@ -1284,7 +1284,7 @@ function VistaObra({ obraData, onUpdate }) {
   const añoActual = obra.añoAutorizacion || new Date().getFullYear();
   const historial = obra.historialAños || [];
 
-  const TABS = [{ id: "resumen", l: "Resumen" }, { id: "parametricos", l: "Paramétricos" }, { id: "contratos", l: `Contratos (${(obra.contratos || []).length})` }, { id: "flujo", l: "Flujo" }, { id: "historial", l: `Historial Año (${historial.length})` }];
+  const TABS = [{ id: "resumen", l: "Resumen" }, { id: "parametricos", l: "Paramétricos" }, { id: "contratos", l: 'Contratos (${(obra.contratos || []).length})' }, { id: "flujo", l: "Flujo" }, { id: "historial", l: 'Historial Año (${historial.length})' }];
 
   return (
     <div className="fade-in" style={{ padding: "28px 32px" }}>
@@ -1349,7 +1349,7 @@ function VistaObra({ obraData, onUpdate }) {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid " + T.border, marginBottom: 22 }}>
-        {TABS.map(t => <button key={t.id} className={`tb ${tab === t.id ? "on" : ""}`} onClick={() => setTab(t.id)}>{t.l}</button>)}
+        {TABS.map(t => <button key={t.id} className={'tb ${tab === t.id ? "on" : ""}'} onClick={() => setTab(t.id)}>{t.l}</button>)}
       </div>
 
       {/* RESUMEN */}
@@ -1413,7 +1413,7 @@ function VistaObra({ obraData, onUpdate }) {
                   const claseColor = [T.textMuted, T.green, T.yellow, T.blue, T.silver, T.textMuted][6 - p.clase] || T.textMuted;
                   return (
                     <tr key={i} style={{ borderTop: "1px solid " + T.border }}>
-                      <td style={{ padding: "11px 16px" }}><Tag label={`CLASE ${p.clase}`} color={claseColor} /></td>
+                      <td style={{ padding: "11px 16px" }}><Tag label={'CLASE ${p.clase}'} color={claseColor} /></td>
                       <td style={{ padding: "11px 16px" }}><Mn size={13}>{fmt.currency(p.monto)}</Mn></td>
                       <td style={{ padding: "11px 16px" }}><Mn color={v > 0 ? T.red : T.green} size={12}>{v > 0 ? "+" : ""}{fmt.pct(v)}</Mn></td>
                       <td style={{ padding: "11px 16px" }}><Mn color={T.textMuted} size={11}>{fmt.date(p.fecha)}</Mn></td>
@@ -1459,7 +1459,7 @@ function VistaObra({ obraData, onUpdate }) {
                   </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 12 }}>
-                  {[{ l: "Monto Vigente", v: fmt.currency(cv.ma) }, { l: `Anticipo ${c.anticipoPct}%`, v: fmt.currency(cv.ant), acc: T.green }, { l: "Estimado", v: fmt.currency(cv.tb), acc: T.blue }, { l: "Neto Pagado", v: fmt.currency(cv.neto), acc: T.yellow }].map((k, i) => (
+                  {[{ l: "Monto Vigente", v: fmt.currency(cv.ma) }, { l: 'Anticipo ${c.anticipoPct}%', v: fmt.currency(cv.ant), acc: T.green }, { l: "Estimado", v: fmt.currency(cv.tb), acc: T.blue }, { l: "Neto Pagado", v: fmt.currency(cv.neto), acc: T.yellow }].map((k, i) => (
                     <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.acc} size={13}>{k.v}</Mn></div>
                   ))}
                   {cv.dedT < 0 && <div style={{ gridColumn: "span 2" }}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>Deductivas ({(c.deductivas || []).length})</div><Mn color="#00A86B" size={13}>{fmt.currency(cv.dedT)}</Mn></div>}
@@ -1497,7 +1497,7 @@ function VistaObra({ obraData, onUpdate }) {
         const pagos = [];
         (obra.contratos || []).forEach(c => (c.estimaciones || []).forEach(e => {
           const b = fmt.num(e.subtotal), am = b * fmt.num(e.amortizacionAnticipo) / 100, r = b * fmt.num(e.retencion) / 100;
-          pagos.push({ fecha: e.fecha, desc: `Est. #${e.numero}`, neto: b - am - r, status: e.status, contratista: c.contratista, b, am, r });
+          pagos.push({ fecha: e.fecha, desc: 'Est. #${e.numero}', neto: b - am - r, status: e.status, contratista: c.contratista, b, am, r });
         }));
         pagos.sort((a, b) => a.fecha.localeCompare(b.fecha));
         const totPag = pagos.filter(p => p.status === "pagada").reduce((s, p) => s + p.neto, 0);
@@ -1645,7 +1645,7 @@ function Portafolio({ data, setView }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
           <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 24, letterSpacing: "-0.01em", marginBottom: 3 }}>Portafolio</div>
-          <div style={{ color: "#A0B8D8", fontSize: 13 }}>{obrasFilt.length} obra{obrasFilt.length !== 1 ? "s" : ""}{filtroAño !== "todos" ? ` · Año ${filtroAño}` : ` de ${totalObras} total`}</div>
+          <div style={{ color: "#A0B8D8", fontSize: 13 }}>{obrasFilt.length} obra{obrasFilt.length !== 1 ? "s" : ""}{filtroAño !== "todos" ? ' · Año ${filtroAño}" : " de " + totalObras + " total"}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5", letterSpacing: "0.08em", textTransform: "uppercase" }}>Año:</span>
