@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SIGMAWORK — Control de Presupuestos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:#080818;color:#E8EDF8;font-family:Inter,sans-serif;overflow-x:hidden;}
+    ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:#0D0C22;}::-webkit-scrollbar-thumb{background:#1E1E50;border-radius:2px;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes modalIn{from{opacity:0;transform:scale(.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+    @keyframes bdIn{from{opacity:0}to{opacity:1}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .fade-in{animation:fadeIn .25s ease forwards;}
+    button{cursor:pointer;border:none;background:none;font-family:Inter,sans-serif;}
+    input,select,textarea{font-family:Inter,sans-serif;}
+    .inf{width:100%;background:#080818;border:1px solid #1E1E50;border-radius:7px;padding:10px 13px;color:#E8EDF8;font-size:13px;outline:none;transition:border-color .18s,box-shadow .18s;}
+    .inf:focus{border-color:#0BCDD3;box-shadow:0 0 0 3px #0BCDD330;}
+    .inf::placeholder{color:#7A92B5;}
+    select.inf option{background:#0D0C22;}
+    .bp{background:linear-gradient(135deg,#0BCDD3,#089AA0);color:#fff;font-family:Work Sans,sans-serif;font-weight:700;font-size:13px;padding:9px 20px;border-radius:7px;transition:opacity .18s,transform .15s;display:inline-flex;align-items:center;gap:7px;}
+    .bp:hover{opacity:.9;transform:translateY(-1px);}
+    .bp:disabled{opacity:.3;pointer-events:none;}
+    .bg2{background:transparent;color:#A0B8D8;font-size:13px;padding:9px 16px;border-radius:7px;border:1px solid #1E1E50;transition:all .18s;}
+    .bg2:hover{border-color:#2A2870;color:#E8EDF8;background:#13122C;}
+    .ab{padding:5px 10px;font-size:11px;border-radius:5px;border:1px solid #1E1E50;color:#A0B8D8;background:transparent;transition:all .15s;}
+    .ab:hover{border-color:#2A2870;color:#E8EDF8;background:#13122C;}
+    .ab.d:hover{border-color:rgba(232,52,74,.5);color:#E8344A;background:rgba(232,52,74,.08);}
+    .card{background:#0D0C22;border:1px solid #1E1E50;border-radius:11px;}
+    .ch{transition:border-color .18s,transform .18s,box-shadow .18s;}
+    .ch:hover{border-color:#2A2870;transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.5);}
+    .tb{padding:9px 16px;font-size:13px;font-weight:500;background:transparent;border:none;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;}
+    .tb.on{color:#0BCDD3;border-bottom-color:#0BCDD3;}
+    .tb:not(.on){color:#A0B8D8;}
+    .tb:not(.on):hover{color:#E8EDF8;}
+    .fl2{display:block;font-family:JetBrains Mono,monospace;font-size:10px;color:#7A92B5;letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px;}
+    .rh:hover{background:#141230;}
+    .tag{display:inline-flex;align-items:center;font-family:JetBrains Mono,monospace;font-size:10px;font-weight:500;letter-spacing:.06em;padding:3px 8px;border-radius:4px;text-transform:uppercase;}
+    .divider{height:1px;background:#1E1E50;margin:20px 0;}
+    .nav-btn{width:100%;display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:7px;margin-bottom:2px;border:1px solid transparent;transition:all .15s;}
+    .nav-btn.active{background:rgba(11,205,211,.08);border-color:rgba(11,205,211,.2);}
+    .tree-btn{width:100%;display:flex;align-items:center;gap:8px;background:transparent;border:none;transition:all .15s;text-align:left;}
+    .spinner{width:20px;height:20px;border:2px solid #1E1E50;border-top-color:#0BCDD3;border-radius:50%;animation:spin .8s linear infinite;}
+    #root{display:flex;min-height:100vh;}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyBmgf7sndpQPAD0qxoOBNC3sbmvNxwlC-I",
+  authDomain:"sigmawork-4231c.firebaseapp.com",
+  projectId:"sigmawork-4231c",
+  storageBucket:"sigmawork-4231c.firebasestorage.app",
+  messagingSenderId:"562659888594",
+  appId:"1:562659888594:web:118fc7fcc0f4557a7a4c0b"
+});
+const auth=firebase.auth();
+const db=firebase.firestore();
+async function loadData(uid){try{const d=await db.collection("users").doc(uid).collection("portfolio").doc("main").get();return d.exists?d.data().data:{unidades:[{id:"RE",nombre:"Real Estate",color:"#4E7FDD",plazas:[]},{id:"IND",nombre:"Industrial",color:"#00A86B",plazas:[]}]}}catch(e){return {unidades:[{id:"RE",nombre:"Real Estate",color:"#4E7FDD",plazas:[]},{id:"IND",nombre:"Industrial",color:"#00A86B",plazas:[]}]}}}
+async function saveData(uid,data){await db.collection("users").doc(uid).collection("portfolio").doc("main").set({data,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});}
+</script>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ─── LOGO ────────────────────────────────────────────────────────
+const LOGO_B64 = "PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSIzMjAiIHZpZXdCb3g9IjAgMCAxMjAwIDMyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZUdyYWRpZW50IiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwRjJENTIiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMUQ0RTg5Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJncmVlbkdyYWRpZW50IiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM0QzlBMkEiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjN0NDQjNEIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJzaWx2ZXJHcmFkaWVudCIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjAiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjQkZDNUNDIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iNTAlIiBzdG9wLWNvbG9yPSIjRjNGNEY2Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzlDQTNBRiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxmaWx0ZXIgaWQ9InNoYWRvdyIgeD0iLTIwJSIgeT0iLTIwJSIgd2lkdGg9IjE0MCUiIGhlaWdodD0iMTQwJSI+CiAgICAgIDxmZURyb3BTaGFkb3cgZHg9IjAiIGR5PSI2IiBzdGREZXZpYXRpb249IjgiIGZsb29kLWNvbG9yPSIjMDAwMDAwIiBmbG9vZC1vcGFjaXR5PSIwLjI1Ii8+CiAgICA8L2ZpbHRlcj4KICA8L2RlZnM+CiAgPGcgZmlsdGVyPSJ1cmwoI3NoYWRvdykiPgogICAgPHBhdGggZD0iTTEyMCA2MCBIMzAwIEwyMzAgMTQwIEwzMDAgMjIwIEgxMjAgTDE5MCAxNDAgWiIgZmlsbD0idXJsKCNibHVlR3JhZGllbnQpIi8+CiAgICA8cmVjdCB4PSIxNzUiIHk9IjE0NSIgd2lkdGg9IjE4IiBoZWlnaHQ9IjM4IiBmaWxsPSIjRDFENURCIi8+CiAgICA8cmVjdCB4PSIyMDUiIHk9IjEyOCIgd2lkdGg9IjE4IiBoZWlnaHQ9IjU1IiBmaWxsPSIjQzRDQUQxIi8+CiAgICA8cmVjdCB4PSIyMzUiIHk9IjEwOCIgd2lkdGg9IjE4IiBoZWlnaHQ9Ijc1IiBmaWxsPSIjQUVCN0MyIi8+CiAgICA8cGF0aCBkPSJNMTA1IDIxMCBDMTYwIDE4MCwgMjIwIDE1MCwgMjg1IDk1IiBzdHJva2U9InVybCgjZ3JlZW5HcmFkaWVudCkiIHN0cm9rZS13aWR0aD0iMjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgZmlsbD0ibm9uZSIvPgogICAgPHBvbHlnb24gcG9pbnRzPSIyNzUsODIgMzE1LDg4IDI5MCwxMTgiIGZpbGw9IiM2REJCM0IiLz4KICA8L2c+CiAgPGcgZm9udC1mYW1pbHk9Ik1vbnRzZXJyYXQsIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iNzAwIj4KICAgIDx0ZXh0IHg9IjM2MCIgeT0iMTY1IiBmb250LXNpemU9IjkyIiBmaWxsPSJ1cmwoI3NpbHZlckdyYWRpZW50KSI+U0lHTUE8L3RleHQ+CiAgICA8dGV4dCB4PSI3MjAiIHk9IjE2NSIgZm9udC1zaXplPSI5MiIgZmlsbD0idXJsKCNncmVlbkdyYWRpZW50KSI+V09SSzwvdGV4dD4KICAgIDxwYXRoIGQ9Ik0zNjAgMTkwIEM1MjAgMjA1LCA3NjAgMjA1LCA5ODAgMTkwIiBzdHJva2U9IiNBQUIyQkQiIHN0cm9rZS13aWR0aD0iNCIgZmlsbD0ibm9uZSIgb3BhY2l0eT0iMC44Ii8+CiAgICA8dGV4dCB4PSIzNjUiIHk9IjI0NSIgZm9udC1zaXplPSIzNCIgZm9udC13ZWlnaHQ9IjQwMCIgZmlsbD0iIzdCODc5NCIgbGV0dGVyLXNwYWNpbmc9IjEiPlNPRlRXQVJFIERFIEFETUlOSVNUUkFDSU9OIERFIFBSRVNVUFVFU1RPUzwvdGV4dD4KICA8L2c+Cjwvc3ZnPg=="; const LOGO_MIME = "image/svg+xml";
+
+// ─── CITELIS BRAND PALETTE — OFICIAL 2025 ───────────────────────
+// Fuente: Manual de Identidad Citelis 2025
+// Primarios: Navy Blue #4E7FDD | Sea Serpent #0BCDD3 | White #FFFFFF
+// Secundarios: Jade #00A86B | Cetacean Blue #000040
+const T = {
+  // Backgrounds — dark navy (derivado de Cetacean Blue)
+  bg:          "#080818",
+  surface:     "#0D0C22",
+  surfaceAlt:  "#13122C",
+  surfaceHover:"#181640",
+  // Borders — navy tinted
+  border:      "#1E1E50",
+  borderLight: "#2A2870",
+  // SEA SERPENT — acento principal interactivo (Citelis primario)
+  accent:      "#0BCDD3",
+  accentDark:  "#089AA0",
+  accentDim:   "#0BCDD314",
+  accentGlow:  "#0BCDD335",
+  // NAVY BLUE — identidad Real Estate (Citelis primario)
+  blue:        "#4E7FDD",
+  blueLight:   "#2E2CAA",
+  blueDim:     "#4E7FDD18",
+  blueGlow:    "#4E7FDD40",
+  // JADE — identidad Industrial (Citelis secundario)
+  green:       "#00A86B",
+  greenDark:   "#007A4D",
+  greenDim:    "#00A86B14",
+  greenGlow:   "#00A86B35",
+  // CETACEAN BLUE — oscuro profundo
+  navy:        "#000040",
+  // Silver — texto metalico
+  silver:      "#9BAAB8",
+  // Semaphore
+  yellow:      "#F0B429",
+  yellowDim:   "#F0B42914",
+  red:         "#E8344A",
+  redDim:      "#E8344A14",
+  orange:      "#E07428",
+  // Text
+  textPrimary:   "#E8EDF8",
+  textSecondary: "#8A9DC0",
+  textMuted:     "#5A6A90",
+};
+
+// ─── FONTS ──────────────────────────────────────────────────────
+const fl = document.createElement("link");
+fl.rel = "stylesheet";
+fl.href = "https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap";
+document.head.appendChild(fl);
+
+// ─── GLOBAL CSS ─────────────────────────────────────────────────
+const gs = document.createElement("style");
+gs.textContent = `
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:${T.bg};color:${T.textPrimary};font-family:'Inter',sans-serif;overflow-x:hidden;}
+  ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:${T.surface};}::-webkit-scrollbar-thumb{background:${T.border};border-radius:2px;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes modalIn{from{opacity:0;transform:scale(0.97) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+  @keyframes bdIn{from{opacity:0}to{opacity:1}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  .fade-in{animation:fadeIn .25s ease forwards;}
+  button{cursor:pointer;border:none;background:none;font-family:'Inter',sans-serif;}
+  input,select,textarea{font-family:'Inter',sans-serif;}
+  .inf{width:100%;background:${T.bg};border:1px solid ${T.border};border-radius:7px;padding:10px 13px;color:${T.textPrimary};font-size:13px;outline:none;transition:border-color .18s,box-shadow .18s;}
+  .inf:focus{border-color:${T.green};box-shadow:0 0 0 3px ${T.greenGlow};}
+  .inf::placeholder{color:${T.textMuted};}
+  select.inf option{background:${T.surface};}
+  .bp{background:linear-gradient(135deg,${T.green},${T.greenDark});color:#fff;font-family:'Work Sans',sans-serif;font-weight:700;font-size:13px;padding:9px 20px;border-radius:7px;transition:opacity .18s,transform .15s;display:inline-flex;align-items:center;gap:7px;letter-spacing:.02em;}
+  .bp:hover{opacity:.9;transform:translateY(-1px);}
+  .bp:disabled{opacity:.3;pointer-events:none;}
+  .bg2{background:transparent;color:${T.textSecondary};font-size:13px;padding:9px 16px;border-radius:7px;border:1px solid ${T.border};transition:all .18s;}
+  .bg2:hover{border-color:${T.borderLight};color:${T.textPrimary};background:${T.surfaceAlt};}
+  .ab{padding:5px 10px;font-size:11px;border-radius:5px;border:1px solid ${T.border};color:${T.textSecondary};background:transparent;transition:all .15s;}
+  .ab:hover{border-color:${T.borderLight};color:${T.textPrimary};background:${T.surfaceAlt};}
+  .ab.d:hover{border-color:${T.red}50;color:${T.red};background:${T.redDim};}
+  .card{background:${T.surface};border:1px solid ${T.border};border-radius:11px;}
+  .ch{transition:border-color .18s,transform .18s,box-shadow .18s;}
+  .ch:hover{border-color:${T.borderLight};transform:translateY(-2px);box-shadow:0 8px 28px #00000060;}
+  .tb{padding:9px 16px;font-size:13px;font-weight:500;background:transparent;border:none;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;}
+  .tb.on{color:${T.green};border-bottom-color:${T.green};}
+  .tb:not(.on){color:${T.textSecondary};}
+  .tb:not(.on):hover{color:${T.textPrimary};}
+  .fl2{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;color:${T.textMuted};letter-spacing:.1em;text-transform:uppercase;margin-bottom:7px;}
+  .rh:hover{background:${T.surfaceHover};}
+  .tag{display:inline-flex;align-items:center;gap:4px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.06em;padding:3px 8px;border-radius:4px;text-transform:uppercase;}
+  .divider{height:1px;background:${T.border};margin:20px 0;}
+  .nav-btn{width:100%;display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:7px;margin-bottom:2px;border:1px solid transparent;transition:all .15s;}
+  .nav-btn:hover span{color:${T.green};}
+  .nav-btn.active{background:${T.greenDim};border-color:${T.greenGlow};}
+  .nav-btn.active span{color:${T.green};}
+  .tree-btn{width:100%;display:flex;align-items:center;gap:8px;background:transparent;border:none;transition:all .15s;text-align:left;}
+  .tree-btn:hover span{color:${T.textPrimary};}
+`;
+document.head.appendChild(gs);
+
+// ─── UTILS ──────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2, 9);
+const fmt = {
+  currency: n => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 0 }).format(n || 0),
+  pct: n => `${(n || 0).toFixed(1)}%`,
+  date: s => s ? new Date(s + "T12:00:00").toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+  num: s => parseFloat(String(s || 0).replace(/,/g, "")) || 0,
+};
+
+const CLASIFS = [
+  { value: "modificacion",   label: "Modificación de Proyecto", color: T.blue },
+  { value: "omision",        label: "Omisión de Proyecto",       color: T.yellow },
+  { value: "situacion_fisica", label: "Situación Física de Obra", color: T.orange },
+  { value: "mala_ejecucion", label: "Mala Ejecución",            color: T.red },
+];
+const CLASIFS_CT = [{ value: "normal", label: "Contrato Normal", color: T.silver }, ...CLASIFS];
+const UNIDADES = ["m²", "m³", "ml", "pza", "kg", "ton", "lt", "hr", "gl", "lote"];
+const STATUS_E = ["generada", "enviada", "aprobada", "pagada"];
+
+// ─── FINANCIAL ENGINE ────────────────────────────────────────────
+function calcC(c) {
+  const cvTotal = (c.convenios || []).reduce((s, v) => s + fmt.num(v.montoDelta), 0);
+  const ma = fmt.num(c.montoOriginal) + cvTotal;
+  const ant = fmt.num(c.montoOriginal) * (fmt.num(c.anticipoPct) / 100);
+  const ests = (c.estimaciones || []).filter(e => ["pagada", "aprobada", "enviada"].includes(e.status));
+  const tb = ests.reduce((s, e) => s + fmt.num(e.subtotal), 0);
+  const ta = ests.reduce((s, e) => s + fmt.num(e.subtotal) * fmt.num(e.amortizacionAnticipo) / 100, 0);
+  const tr = ests.reduce((s, e) => s + fmt.num(e.subtotal) * fmt.num(e.retencion) / 100, 0);
+  return { ma, ant, cvTotal, tb, ta, tr, neto: tb - ta - tr, pend: ma - tb, antPend: ant - ta };
+}
+function calcO(o) {
+  const tc = (o.contratos || []).reduce((s, c) => s + calcC(c).ma, 0);
+  const t = fmt.num(o.presupuestoAutorizado);
+  const pct = t > 0 ? (tc / t) * 100 : 0;
+  const cl = { modificacion: 0, omision: 0, situacion_fisica: 0, mala_ejecucion: 0 };
+  (o.contratos || []).forEach(c => {
+    if (c.clasificacion !== "normal") cl[c.clasificacion] = (cl[c.clasificacion] || 0) + calcC(c).ma;
+    (c.convenios || []).forEach(cv => { cl[cv.clasificacion] = (cl[cv.clasificacion] || 0) + fmt.num(cv.montoDelta); });
+  });
+  const tp = (o.contratos || []).reduce((s, c) => s + calcC(c).neto, 0);
+  return { tc, varianza: t - tc, pct, cl, tp, sem: pct <= 90 ? "green" : pct <= 100 ? "yellow" : "red" };
+}
+function calcP(p) { return (p.obras || []).reduce((a, o) => { const c = calcO(o); return { aut: a.aut + fmt.num(o.presupuestoAutorizado), cont: a.cont + c.tc, pag: a.pag + c.tp }; }, { aut: 0, cont: 0, pag: 0 }); }
+function calcU(u) { return (u.plazas || []).reduce((a, p) => { const c = calcP(p); return { aut: a.aut + c.aut, cont: a.cont + c.cont, pag: a.pag + c.pag }; }, { aut: 0, cont: 0, pag: 0 }); }
+
+// ─── SEED DATA ───────────────────────────────────────────────────
+const SEED = {
+  unidades: [
+    {
+      id: "RE", nombre: "Real Estate", color: T.blue,
+      plazas: [{
+        id: "cel", nombre: "Plaza Celaya",
+        obras: [{
+          id: "o1", nombre: "Torre Celaya I", estado: "activo", presupuestoAutorizado: 45000000,
+          parametricos: [
+            { id: "pm1", clase: 5, monto: 50000000, fecha: "2024-01-15", supuestos: "Estimación conceptual inicial" },
+            { id: "pm2", clase: 4, monto: 47000000, fecha: "2024-03-20", supuestos: "Basado en planos esquemáticos" },
+          ],
+          contratos: [{
+            id: "c1", numero: "CT-2024-001", contratista: "Constructora Omega SA de CV",
+            fechaFirma: "2024-04-01", montoOriginal: 18000000, anticipoPct: 20, retencionPct: 5,
+            clasificacion: "normal", estado: "activo", convenios: [],
+            partidas: [{ id: "pa1", nombre: "Estructura", conceptos: [
+              { id: "cn1", descripcion: "Zapatas tipo Z1", unidad: "pza", cantContratada: 24, precioUnitario: 45000, cantEjecutada: 18 },
+              { id: "cn2", descripcion: "Columnas f'c=300", unidad: "m³", cantContratada: 380, precioUnitario: 3800, cantEjecutada: 200 },
+            ]}],
+            estimaciones: [
+              { id: "e1", numero: 1, fecha: "2024-05-15", periodo: "Mayo 2024", status: "pagada", conceptos: [], subtotal: 906000, amortizacionAnticipo: 20, retencion: 5 },
+              { id: "e2", numero: 2, fecha: "2024-06-15", periodo: "Junio 2024", status: "aprobada", conceptos: [], subtotal: 664000, amortizacionAnticipo: 20, retencion: 5 },
+            ]
+          }]
+        }]
+      }]
+    },
+    {
+      id: "IND", nombre: "Industrial", color: T.green,
+      plazas: [{
+        id: "qro", nombre: "Plaza Querétaro",
+        obras: [{
+          id: "o2", nombre: "Nave Industrial QRO-01", estado: "activo", presupuestoAutorizado: 28000000,
+          parametricos: [{ id: "pm3", clase: 5, monto: 31000000, fecha: "2024-03-01", supuestos: "Estimación conceptual nave tipo" }],
+          contratos: [{
+            id: "c2", numero: "CT-2024-004", contratista: "Estructuras Metálicas QRO SA",
+            fechaFirma: "2024-06-15", montoOriginal: 16000000, anticipoPct: 25, retencionPct: 5,
+            clasificacion: "normal", estado: "activo",
+            convenios: [{ id: "cv1", numero: 1, fecha: "2024-08-20", justificacion: "Cimentación profunda por suelo no anticipado", clasificacion: "situacion_fisica", montoDelta: 1800000 }],
+            partidas: [{ id: "pa2", nombre: "Estructura Metálica", conceptos: [
+              { id: "cn3", descripcion: "Columna HEB-300", unidad: "ton", cantContratada: 85, precioUnitario: 45000, cantEjecutada: 60 }
+            ]}],
+            estimaciones: [{ id: "e3", numero: 1, fecha: "2024-07-31", periodo: "Julio 2024", status: "pagada", conceptos: [], subtotal: 1800000, amortizacionAnticipo: 25, retencion: 5 }]
+          }]
+        }]
+      }]
+    }
+  ]
+};
+
+// ─── UI ATOMS ────────────────────────────────────────────────────
+function Logo() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0" }}>
+      <img
+        src={"data:image/svg+xml;base64," + LOGO_B64}
+        alt="SIGMAWORK"
+        style={{ height: 48, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 8px #0BCDD320)" }}
+      />
+    </div>
+  );
+}
+
+function Sem({ tipo, sz = 8 }) {
+  const m = { green: T.green, yellow: T.yellow, red: T.red };
+  return <span style={{ display: "inline-block", width: sz, height: sz, borderRadius: "50%", background: m[tipo] || T.textMuted, boxShadow: `0 0 6px ${(m[tipo] || T.textMuted)}90`, flexShrink: 0 }} />;
+}
+function Tag({ label, color = T.green }) { return <span className="tag" style={{ background: `${color}18`, color, border: `1px solid ${color}28` }}>{label}</span>; }
+function CtTag({ v }) {
+  const m = { normal: { l: "Normal", c: T.silver }, modificacion: { l: "Mod. Proyecto", c: T.blue }, omision: { l: "Omisión", c: T.yellow }, situacion_fisica: { l: "Sit. Física", c: T.orange }, mala_ejecucion: { l: "Mala Ejecución", c: T.red } };
+  const s = m[v] || m.normal; return <Tag label={s.l} color={s.c} />;
+}
+function StTag({ s }) {
+  const m = { generada: T.silver, enviada: T.yellow, aprobada: T.blue, pagada: T.green };
+  const l = { generada: "Generada", enviada: "Enviada", aprobada: "Aprobada", pagada: "Pagada" };
+  return <Tag label={l[s] || s} color={m[s] || T.textMuted} />;
+}
+function PBar({ pct, color }) {
+  const c = pct > 100 ? T.red : pct > 90 ? T.yellow : color || T.green;
+  return (
+    <div style={{ width: "100%", height: 3, background: T.border, borderRadius: 2, overflow: "hidden" }}>
+      <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: c, borderRadius: 2, transition: "width .5s ease" }} />
+    </div>
+  );
+}
+function Mn({ children, color, size = 12 }) { return <span style={{ fontFamily: "JetBrains Mono", fontSize: size, color: color || T.textPrimary }}>{children}</span>; }
+function KPI({ label, value, accent, sub }) {
+  return (
+    <div>
+      <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 7 }}>{label}</div>
+      <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 18, color: accent || T.textPrimary, marginBottom: 2 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: "#6A7DA0" }}>{sub}</div>}
+    </div>
+  );
+}
+function SectionTitle({ children }) {
+  return <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 11, color: "#6A7DA0", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12 }}>{children}</div>;
+}
+
+// ─── MODAL ───────────────────────────────────────────────────────
+function Modal({ title, onClose, children, wide }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24, animation: "bdIn .2s ease" }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ background: T.surface, border: `1px solid ${T.borderLight}`, borderRadius: 14, width: "100%", maxWidth: wide ? 900 : 580, maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 28px 70px #000000B0", animation: "modalIn .22s ease" }}>
+        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 15 }}>{title}</div>
+          <button onClick={onClose} style={{ color: "#6A7DA0", fontSize: 18, padding: "2px 6px", borderRadius: 4, transition: "color .15s" }}>✕</button>
+        </div>
+        <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FORM ATOMS ──────────────────────────────────────────────────
+function Field({ label, children, hint, req }) {
+  return (
+    <div>
+      <label className="fl2">{label}{req && <span style={{ color: T.red }}> *</span>}</label>
+      {children}
+      {hint && <div style={{ fontSize: 11, color: "#6A7DA0", marginTop: 5 }}>{hint}</div>}
+    </div>
+  );
+}
+function Inp({ value, onChange, placeholder, type = "text", min }) {
+  return <input className="inf" type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} min={min} />;
+}
+function Sel({ value, onChange, options }) {
+  return (
+    <select className="inf" value={value} onChange={e => onChange(e.target.value)}>
+      <option value="">Seleccionar…</option>
+      {options.map(o => <option key={o.value || o} value={o.value || o}>{o.label || o}</option>)}
+    </select>
+  );
+}
+function Txta({ value, onChange, placeholder, rows = 3 }) {
+  return <textarea className="inf" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{ resize: "vertical" }} />;
+}
+function Grid2({ children }) { return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>{children}</div>; }
+function Grid3({ children }) { return <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>{children}</div>; }
+function ModalFooter({ onClose, onSave, label = "Guardar", disabled }) {
+  return (
+    <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
+      <button className="bg2" onClick={onClose}>Cancelar</button>
+      <button className="bp" onClick={onSave} disabled={disabled}>{label}</button>
+    </div>
+  );
+}
+function AlertBox({ msg, color = T.red, bg }) {
+  return (
+    <div style={{ background: bg || `${color}14`, border: `1px solid ${color}40`, borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 9, alignItems: "flex-start" }}>
+      <span style={{ color, fontSize: 14, marginTop: 1 }}>⚠</span>
+      <span style={{ fontSize: 12, color }}>{msg}</span>
+    </div>
+  );
+}
+
+// ─── FORMS ───────────────────────────────────────────────────────
+function FObra({ data, onSave, onClose, ctx }) {
+  const allP = [];
+  data.unidades.forEach(u => u.plazas.forEach(p => allP.push({ value: `${u.id}|${p.id}`, label: `${u.nombre} → ${p.nombre}` })));
+  const [f, setF] = useState({ nombre: "", plazaKey: ctx ? `${ctx.unidadId}|${ctx.plazaId}` : "", presupuestoAutorizado: "", estado: "planeacion" });
+  const s = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const ok = f.nombre && f.plazaKey && f.presupuestoAutorizado;
+  function save() {
+    if (!ok) return;
+    const [uId, pId] = f.plazaKey.split("|");
+    onSave({ ...f, unidadId: uId, plazaId: pId, presupuestoAutorizado: fmt.num(f.presupuestoAutorizado), id: uid(), contratos: [], parametricos: [] });
+  }
+  return (
+    <Modal title="Nueva Obra" onClose={onClose}>
+      <Grid2>
+        <Field label="Nombre de la Obra" req><Inp value={f.nombre} onChange={v => s("nombre", v)} placeholder="Ej. Torre Celaya I" /></Field>
+        <Field label="Unidad / Plaza" req><Sel value={f.plazaKey} onChange={v => s("plazaKey", v)} options={allP} /></Field>
+      </Grid2>
+      <Grid2>
+        <Field label="Presupuesto Autorizado (MXN)" req hint="Este valor es el TECHO inamovible del proyecto">
+          <Inp value={f.presupuestoAutorizado} onChange={v => s("presupuestoAutorizado", v)} type="number" placeholder="0" />
+        </Field>
+        <Field label="Estado">
+          <Sel value={f.estado} onChange={v => s("estado", v)} options={[{ value: "planeacion", label: "Planeación" }, { value: "activo", label: "Activo" }, { value: "cerrado", label: "Cerrado" }]} />
+        </Field>
+      </Grid2>
+      <ModalFooter onClose={onClose} onSave={save} label="Guardar Obra" disabled={!ok} />
+    </Modal>
+  );
+}
+
+function FPlaza({ data, onSave, onClose }) {
+  const [f, setF] = useState({ nombre: "", unidadId: "" });
+  const s = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const ok = f.nombre && f.unidadId;
+  return (
+    <Modal title="Nueva Plaza" onClose={onClose}>
+      <Grid2>
+        <Field label="Nombre de la Plaza" req><Inp value={f.nombre} onChange={v => s("nombre", v)} placeholder="Ej. Plaza Monterrey" /></Field>
+        <Field label="Unidad de Negocio" req><Sel value={f.unidadId} onChange={v => s("unidadId", v)} options={data.unidades.map(u => ({ value: u.id, label: u.nombre }))} /></Field>
+      </Grid2>
+      <ModalFooter onClose={onClose} onSave={() => ok && onSave({ ...f, id: uid(), obras: [] })} label="Guardar Plaza" disabled={!ok} />
+    </Modal>
+  );
+}
+
+function FParam({ obra, onSave, onClose }) {
+  const [f, setF] = useState({ clase: "", monto: "", fecha: "", supuestos: "" });
+  const s = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const ok = f.clase && f.monto && f.fecha;
+  const diff = fmt.num(f.monto) - fmt.num(obra.presupuestoAutorizado);
+  return (
+    <Modal title="Nueva Estimación Paramétrica" onClose={onClose}>
+      <div style={{ background: T.blueDim, border: `1px solid ${T.blue}30`, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: T.textSecondary }}>
+        Techo autorizado: <Mn color={T.green} size={12}>{fmt.currency(obra.presupuestoAutorizado)}</Mn>
+      </div>
+      <Grid3>
+        <Field label="Clase AACE" req><Sel value={f.clase} onChange={v => s("clase", v)} options={[5, 4, 3, 2, 1].map(c => ({ value: c, label: `Clase ${c}` }))} /></Field>
+        <Field label="Monto (MXN)" req><Inp value={f.monto} onChange={v => s("monto", v)} type="number" placeholder="0" /></Field>
+        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
+      </Grid3>
+      <Field label="Supuestos y Notas">
+        <Txta value={f.supuestos} onChange={v => s("supuestos", v)} placeholder="Bases de estimación, alcances incluidos, exclusiones relevantes…" rows={4} />
+      </Field>
+      {f.monto && (
+        <div style={{ marginTop: 12, padding: "10px 14px", background: T.surfaceAlt, borderRadius: 8, fontSize: 12 }}>
+          Varianza vs techo: <Mn color={diff > 0 ? T.red : T.green} size={12}>{fmt.currency(diff)}</Mn>
+        </div>
+      )}
+      <ModalFooter onClose={onClose} onSave={() => ok && onSave({ ...f, clase: parseInt(f.clase), monto: fmt.num(f.monto), id: uid() })} label="Registrar Paramétrico" disabled={!ok} />
+    </Modal>
+  );
+}
+
+function FContrato({ obra, onSave, onClose, edit }) {
+  const [f, setF] = useState({
+    numero: edit?.numero || "", contratista: edit?.contratista || "", fechaFirma: edit?.fechaFirma || "",
+    montoOriginal: edit?.montoOriginal || "", anticipoPct: edit?.anticipoPct || 20, retencionPct: edit?.retencionPct || 5,
+    clasificacion: edit?.clasificacion || "normal", estado: edit?.estado || "activo",
+    partidas: edit?.partidas || [],
+  });
+  const s = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const m = fmt.num(f.montoOriginal);
+  const ant = m * (fmt.num(f.anticipoPct) / 100);
+  const otros = (obra.contratos || []).filter(c => !edit || c.id !== edit.id).reduce((s, c) => s + calcC(c).ma, 0);
+  const proy = otros + m;
+  const sob = proy > fmt.num(obra.presupuestoAutorizado);
+  const ok = f.numero && f.contratista && f.fechaFirma && f.montoOriginal;
+  const totP = f.partidas.reduce((s, p) => s + p.conceptos.reduce((s2, c) => s2 + fmt.num(c.cantContratada) * fmt.num(c.precioUnitario), 0), 0);
+
+  const addP = () => s("partidas", [...f.partidas, { id: uid(), nombre: "", conceptos: [] }]);
+  const upP = (pid, k, v) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, [k]: v } : p));
+  const delP = (pid) => s("partidas", f.partidas.filter(p => p.id !== pid));
+  const addC = (pid) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: [...p.conceptos, { id: uid(), descripcion: "", unidad: "m²", cantContratada: "", precioUnitario: "", cantEjecutada: 0 }] } : p));
+  const upC = (pid, cid, k, v) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: p.conceptos.map(c => c.id === cid ? { ...c, [k]: v } : c) } : p));
+  const delC = (pid, cid) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: p.conceptos.filter(c => c.id !== cid) } : p));
+
+  function save() {
+    if (!ok) return;
+    onSave({ ...f, montoOriginal: m, anticipoPct: fmt.num(f.anticipoPct), retencionPct: fmt.num(f.retencionPct), id: edit?.id || uid(), convenios: edit?.convenios || [], estimaciones: edit?.estimaciones || [] });
+  }
+
+  return (
+    <Modal title={edit ? "Editar Contrato" : "Nuevo Contrato"} onClose={onClose} wide>
+      {sob && <AlertBox msg={`Este contrato genera sobrecosto de ${fmt.currency(proy - fmt.num(obra.presupuestoAutorizado))} sobre el techo autorizado`} />}
+      <SectionTitle>Datos Generales</SectionTitle>
+      <Grid2>
+        <Field label="Número de Contrato" req><Inp value={f.numero} onChange={v => s("numero", v)} placeholder="CT-2024-001" /></Field>
+        <Field label="Contratista" req><Inp value={f.contratista} onChange={v => s("contratista", v)} placeholder="Razón social del contratista" /></Field>
+      </Grid2>
+      <Grid3>
+        <Field label="Fecha de Firma" req><Inp value={f.fechaFirma} onChange={v => s("fechaFirma", v)} type="date" /></Field>
+        <Field label="Clasificación" req><Sel value={f.clasificacion} onChange={v => s("clasificacion", v)} options={CLASIFS_CT.map(c => ({ value: c.value, label: c.label }))} /></Field>
+        <Field label="Estado"><Sel value={f.estado} onChange={v => s("estado", v)} options={[{ value: "activo", label: "Activo" }, { value: "cerrado", label: "Cerrado" }, { value: "en_convenio", label: "En Convenio" }]} /></Field>
+      </Grid3>
+      <div className="divider" />
+      <SectionTitle>Condiciones Financieras</SectionTitle>
+      <Grid3>
+        <Field label="Monto Original (MXN)" req><Inp value={f.montoOriginal} onChange={v => s("montoOriginal", v)} type="number" placeholder="0" /></Field>
+        <Field label="Anticipo (%)" hint={m ? `= ${fmt.currency(ant)}` : ""}><Inp value={f.anticipoPct} onChange={v => s("anticipoPct", v)} type="number" min="0" placeholder="20" /></Field>
+        <Field label="Retención Garantía (%)"><Inp value={f.retencionPct} onChange={v => s("retencionPct", v)} type="number" min="0" placeholder="5" /></Field>
+      </Grid3>
+      {m > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, padding: "13px", background: T.bg, borderRadius: 8, border: `1px solid ${T.border}`, marginBottom: 14 }}>
+          {[{ l: "Monto contrato", v: fmt.currency(m), c: T.textPrimary }, { l: "Anticipo a erogar", v: fmt.currency(ant), c: T.green }, { l: "Varianza vs techo", v: fmt.currency(fmt.num(obra.presupuestoAutorizado) - proy), c: sob ? T.red : T.green }].map((k, i) => (
+            <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.c} size={13}>{k.v}</Mn></div>
+          ))}
+        </div>
+      )}
+      <div className="divider" />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <SectionTitle>Partidas y Conceptos</SectionTitle>
+        <button className="bg2" onClick={addP} style={{ fontSize: 12, padding: "6px 12px" }}>+ Partida</button>
+      </div>
+      {f.partidas.length === 0 && (
+        <div style={{ textAlign: "center", padding: "20px", color: "#6A7DA0", fontSize: 13, border: `1px dashed ${T.border}`, borderRadius: 8, marginBottom: 14 }}>
+          Sin partidas. Agrega una partida para registrar conceptos.
+        </div>
+      )}
+      {f.partidas.map((p, pi) => (
+        <div key={p.id} style={{ background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 9, marginBottom: 10, overflow: "hidden" }}>
+          <div style={{ padding: "11px 14px", display: "flex", gap: 10, alignItems: "center", borderBottom: `1px solid ${T.border}` }}>
+            <input className="inf" value={p.nombre} onChange={e => upP(p.id, "nombre", e.target.value)} placeholder={`Partida ${pi + 1}`} style={{ flex: 1, fontSize: 13, fontWeight: 600 }} />
+            <button className="ab d" onClick={() => delP(p.id)}>✕</button>
+          </div>
+          {p.conceptos.length > 0 && (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: T.bg }}>
+                    {["Descripción", "Unidad", "Cantidad", "P.U.", "Total", ""].map(h => (
+                      <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500, borderBottom: `1px solid ${T.border}` }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {p.conceptos.map(cn => {
+                    const tot = fmt.num(cn.cantContratada) * fmt.num(cn.precioUnitario);
+                    return (
+                      <tr key={cn.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                        <td style={{ padding: "7px 12px" }}><input className="inf" value={cn.descripcion} onChange={e => upC(p.id, cn.id, "descripcion", e.target.value)} placeholder="Descripción" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
+                        <td style={{ padding: "7px 10px", width: 80 }}>
+                          <select className="inf" value={cn.unidad} onChange={e => upC(p.id, cn.id, "unidad", e.target.value)} style={{ fontSize: 12, padding: "5px 7px" }}>
+                            {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding: "7px 10px", width: 100 }}><input className="inf" value={cn.cantContratada} onChange={e => upC(p.id, cn.id, "cantContratada", e.target.value)} type="number" placeholder="0" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
+                        <td style={{ padding: "7px 10px", width: 120 }}><input className="inf" value={cn.precioUnitario} onChange={e => upC(p.id, cn.id, "precioUnitario", e.target.value)} type="number" placeholder="0" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
+                        <td style={{ padding: "7px 12px", whiteSpace: "nowrap" }}><Mn color={tot > 0 ? T.green : T.textMuted} size={12}>{tot > 0 ? fmt.currency(tot) : "—"}</Mn></td>
+                        <td style={{ padding: "7px 10px" }}><button className="ab d" onClick={() => delC(p.id, cn.id)}>✕</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <button className="ab" onClick={() => addC(p.id)}>+ Concepto</button>
+            {p.conceptos.length > 0 && <Mn color={T.textSecondary} size={11}>Subtotal: {fmt.currency(p.conceptos.reduce((s, c) => s + fmt.num(c.cantContratada) * fmt.num(c.precioUnitario), 0))}</Mn>}
+          </div>
+        </div>
+      ))}
+      {totP > 0 && <div style={{ textAlign: "right", padding: "10px 0", borderTop: `1px solid ${T.border}` }}><Mn color={T.green} size={12}>Total partidas: {fmt.currency(totP)}</Mn></div>}
+      <ModalFooter onClose={onClose} onSave={save} label={edit ? "Actualizar Contrato" : "Registrar Contrato"} disabled={!ok} />
+    </Modal>
+  );
+}
+
+
+// ── DETALLE CONVENIO MODAL ──────────────────────────────────────
+function DetalleConvenio({convenio,contrato,onClose}){
+  const clasifColors={modificacion:T.blue,omision:T.yellow,situacion_fisica:T.orange,mala_ejecucion:T.red};
+  const clasifLabels={modificacion:"Modificación de Proyecto",omision:"Omisión de Proyecto",situacion_fisica:"Situación Física de Obra",mala_ejecucion:"Mala Ejecución"};
+  return(
+    <Modal title={`Convenio #${convenio.numero} — Detalle`} onClose={onClose} wide>
+      {/* Header clasificación */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,padding:"16px",background:"#080818",borderRadius:10,border:"1px solid #1E1E50"}}>
+        <div>
+          <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:6}}>Contratista</div>
+          <div style={{fontFamily:"Work Sans",fontWeight:700,fontSize:15,marginBottom:4}}>{contrato.contratista}</div>
+          <div style={{fontFamily:"JetBrains Mono",fontSize:11,color:"#5A6A90"}}>{contrato.numero}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:6}}>Monto Delta</div>
+          <div style={{fontFamily:"Work Sans",fontWeight:800,fontSize:22,color:fmt.num(convenio.montoDelta)>=0?"#E8344A":"#00A86B"}}>{fmt.num(convenio.montoDelta)>=0?"+":""}{fmt.currency(convenio.montoDelta)}</div>
+          <div style={{fontFamily:"JetBrains Mono",fontSize:11,color:"#5A6A90",marginTop:3}}>{fmt.date(convenio.fecha)}</div>
+        </div>
+      </div>
+
+      {/* Clasificación */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Clasificación</div>
+        <div style={{display:"inline-flex",alignItems:"center",gap:8,background:`${clasifColors[convenio.clasificacion]}18`,border:`1px solid ${clasifColors[convenio.clasificacion]}40`,borderRadius:8,padding:"8px 14px"}}>
+          <span style={{width:8,height:8,borderRadius:"50%",background:clasifColors[convenio.clasificacion],display:"inline-block",boxShadow:`0 0 6px ${clasifColors[convenio.clasificacion]}`}}/>
+          <span style={{fontFamily:"Work Sans",fontWeight:600,fontSize:14,color:clasifColors[convenio.clasificacion]}}>{clasifLabels[convenio.clasificacion]||convenio.clasificacion}</span>
+        </div>
+      </div>
+
+      {/* Causa resumen */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Causa (Resumen)</div>
+        <div style={{background:"#080818",borderRadius:8,padding:"12px 16px",border:"1px solid #1E1E50",fontSize:13,color:"#8A9DC0",lineHeight:1.7}}>{convenio.justificacion||"—"}</div>
+      </div>
+
+      {/* Descripción técnica detallada */}
+      {convenio.descripcion&&(
+        <div style={{marginBottom:20}}>
+          <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Descripción Técnica Detallada</div>
+          <div style={{background:"#080818",borderRadius:8,padding:"14px 16px",border:"1px solid #1E1E50",fontSize:13,color:"#E8EDF8",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{convenio.descripcion}</div>
+        </div>
+      )}
+
+      {/* Adjunto */}
+      {convenio.adjuntoUrl&&(
+        <div style={{marginBottom:20}}>
+          <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Documento de Soporte</div>
+          <div style={{background:"rgba(11,205,211,.06)",border:"1px solid rgba(11,205,211,.2)",borderRadius:10,padding:"14px 18px",display:"flex",alignItems:"center",gap:14}}>
+            <div style={{width:40,height:40,background:"rgba(11,205,211,.12)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>📎</div>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"Work Sans",fontWeight:600,fontSize:14,marginBottom:3}}>{convenio.adjuntoNombre||"Documento adjunto"}</div>
+              <div style={{fontFamily:"JetBrains Mono",fontSize:10,color:"#5A6A90",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:400}}>{convenio.adjuntoUrl}</div>
+            </div>
+            <a href={convenio.adjuntoUrl} target="_blank" rel="noopener noreferrer"
+              style={{background:"linear-gradient(135deg,#0BCDD3,#089AA0)",color:"#fff",fontFamily:"Work Sans",fontWeight:700,fontSize:13,padding:"10px 20px",borderRadius:7,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:7,flexShrink:0}}>
+              Abrir archivo →
+            </a>
+          </div>
+        </div>
+      )}
+      {!convenio.adjuntoUrl&&(
+        <div style={{marginBottom:20,padding:"12px 16px",background:"#080818",borderRadius:8,border:"1px dashed #1E1E50",display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:16,color:"#5A6A90"}}>📎</span>
+          <span style={{fontSize:12,color:"#5A6A90"}}>Sin documentos de soporte adjuntos en este convenio.</span>
+        </div>
+      )}
+
+      <div style={{display:"flex",justifyContent:"flex-end"}}>
+        <button className="bg2" onClick={onClose}>Cerrar</button>
+      </div>
+    </Modal>
+  );
+}
+
+
+// ── FORM: Deductiva ─────────────────────────────────────────────
+function FDeductiva({ contrato, obra, onSave, onClose }) {
+  const numeroSig = (contrato.deductivas?.length || 0) + 1;
+  const [f, setF] = useState({ numero: numeroSig, fecha: new Date().toISOString().slice(0,10), descripcion: "", estado: "aprobada" });
+  const [cantidades, setCantidades] = useState({});
+  const [errores, setErrores] = useState({});
+  const sf = (k, v) => setF(x => ({ ...x, [k]: v }));
+
+  const allConceptos = [];
+  (contrato.partidas || []).forEach(p => p.conceptos.forEach(c => allConceptos.push({ ...c, partidaNombre: p.nombre })));
+
+  function setCantidad(cid, val) {
+    const concepto = allConceptos.find(c => c.id === cid);
+    const disponible = cantDisponibleDeducir(contrato, concepto);
+    const num = fmt.num(val);
+    const newErr = { ...errores };
+    if (num > disponible) {
+      newErr[cid] = `Máximo deducible: ${disponible.toLocaleString()} ${concepto.unidad}. (${fmt.num(concepto.cantContratada).toLocaleString()} contratadas − ${cantDeducidaConcepto(contrato, cid).toLocaleString()} ya deducidas)`;
+    } else {
+      delete newErr[cid];
+    }
+    setErrores(newErr);
+    setCantidades(prev => ({ ...prev, [cid]: val }));
+  }
+
+  const hayErrores = Object.keys(errores).length > 0;
+  const conceptosAfectados = allConceptos.filter(c => fmt.num(cantidades[c.id]) > 0);
+  const montoTotal = conceptosAfectados.reduce((s, c) => {
+    const qty = Math.min(fmt.num(cantidades[c.id]), cantDisponibleDeducir(contrato, c));
+    return s - (qty * fmt.num(c.precioUnitario));
+  }, 0);
+  const ok = f.fecha && f.descripcion && conceptosAfectados.length > 0 && !hayErrores;
+
+  function save() {
+    if (!ok) return;
+    const conceptosDed = conceptosAfectados.map(c => ({
+      conceptoId: c.id,
+      descripcion: c.descripcion,
+      unidad: c.unidad,
+      cantidadDeducida: fmt.num(cantidades[c.id]),
+      precioUnitario: fmt.num(c.precioUnitario),
+      montoDeductiva: -(fmt.num(cantidades[c.id]) * fmt.num(c.precioUnitario))
+    }));
+    onSave({ ...f, conceptos: conceptosDed, montoTotal, id: uid() });
+  }
+
+  return (
+    <Modal title={`Deductiva #${numeroSig} — ${contrato.contratista}`} onClose={onClose} wide>
+      {/* Alerta info */}
+      <div style={{ background: "rgba(240,180,41,.08)", border: "1px solid rgba(240,180,41,.3)", borderRadius: 8, padding: "10px 16px", marginBottom: 18, display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <span style={{ color: "#F0B429", fontSize: 15, marginTop: 1 }}>⚠</span>
+        <div style={{ fontSize: 12, color: "#8A9DC0", lineHeight: 1.6 }}>
+          Una deductiva reduce el monto y alcance del contrato. <strong style={{ color: "#E8EDF8" }}>No se puede deducir más de la cantidad contratada disponible.</strong> El sistema bloqueará cantidades fuera de rango.
+        </div>
+      </div>
+
+      <G3>
+        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => sf("fecha", v)} type="date" /></Field>
+        <Field label="Estado">
+          <Sel value={f.estado} onChange={v => sf("estado", v)} options={[{ value: "aprobada", label: "Aprobada" }, { value: "pendiente", label: "Pendiente" }]} />
+        </Field>
+        <Field label="Monto Total Deductiva">
+          <div style={{ padding: "10px 13px", background: "#080818", border: "1px solid #1E1E50", borderRadius: 7, fontFamily: "JetBrains Mono", fontSize: 14, color: montoTotal < 0 ? "#00A86B" : "#5A6A90", fontWeight: 700 }}>
+            {montoTotal < 0 ? fmt.currency(montoTotal) : "—"}
+          </div>
+        </Field>
+      </G3>
+
+      <Field label="Descripción del Motivo" req hint="¿Por qué se genera esta deductiva? Cambio de proyecto, reducción de alcance, trabajos no ejecutados, etc.">
+        <Txta value={f.descripcion} onChange={v => sf("descripcion", v)} placeholder="Describe el motivo de la deductiva, los trabajos que se reducen o eliminan, y las implicaciones en el proyecto…" rows={4} />
+      </Field>
+
+      <div className="divider" />
+      <SecTitle>Conceptos a Deducir</SecTitle>
+      <div style={{ fontSize: 12, color: "#7A92B5", marginBottom: 14 }}>Ingresa solo los conceptos y volúmenes que aplican a esta deductiva. Deja en blanco los que no aplican.</div>
+
+      {allConceptos.length === 0 ? (
+        <div style={{ color: "#7A92B5", fontSize: 13, padding: "16px 0" }}>El contrato no tiene conceptos registrados.</div>
+      ) : (
+        <div style={{ background: "#080818", border: "1px solid #1E1E50", borderRadius: 9, overflow: "hidden", marginBottom: 16 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: "#0D0C22" }}>
+                {["Concepto", "Partida", "Contratado", "Ya Deducido", "Disponible", "A Deducir", "Monto Deductiva"].map(h => (
+                  <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allConceptos.map(c => {
+                const yaDeducido = cantDeducidaConcepto(contrato, c.id);
+                const disponible = cantDisponibleDeducir(contrato, c);
+                const qty = fmt.num(cantidades[c.id] || 0);
+                const montoConc = qty * fmt.num(c.precioUnitario);
+                const error = errores[c.id];
+                return (
+                  <React.Fragment key={c.id}>
+                    <tr style={{ borderTop: "1px solid #1E1E50", background: error ? "rgba(232,52,74,.05)" : qty > 0 ? "rgba(0,168,107,.05)" : "transparent" }}>
+                      <td style={{ padding: "10px 12px", fontWeight: qty > 0 ? 600 : 400 }}>{c.descripcion}</td>
+                      <td style={{ padding: "10px 12px", color: "#7A92B5", fontSize: 11 }}>{c.partidaNombre}</td>
+                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11 }}>{fmt.num(c.cantContratada).toLocaleString()} {c.unidad}</td>
+                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: yaDeducido > 0 ? "#F0B429" : "#5A6A90" }}>{yaDeducido > 0 ? yaDeducido.toLocaleString() : "—"}</td>
+                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: disponible <= 0 ? "#E8344A" : "#00A86B", fontWeight: 600 }}>{disponible <= 0 ? "AGOTADO" : `${disponible.toLocaleString()} ${c.unidad}`}</td>
+                      <td style={{ padding: "10px 10px", width: 110 }}>
+                        {disponible <= 0 ? (
+                          <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#E8344A", padding: "5px 8px" }}>—</div>
+                        ) : (
+                          <input className="inf" value={cantidades[c.id] || ""} onChange={e => setCantidad(c.id, e.target.value)}
+                            type="number" min="0" max={disponible} placeholder="0"
+                            style={{ fontSize: 12, padding: "5px 8px", borderColor: error ? "#E8344A" : qty > 0 ? "#00A86B" : "#1E1E50" }} />
+                        )}
+                      </td>
+                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 12, color: qty > 0 ? "#00A86B" : "#5A6A90" }}>
+                        {qty > 0 ? `- ${fmt.currency(montoConc)}` : "—"}
+                      </td>
+                    </tr>
+                    {error && (
+                      <tr style={{ background: "rgba(232,52,74,.08)" }}>
+                        <td colSpan={7} style={{ padding: "6px 12px 8px", fontSize: 11, color: "#E8344A", fontWeight: 500 }}>
+                          🚫 {error}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+            {conceptosAfectados.length > 0 && (
+              <tfoot>
+                <tr style={{ borderTop: "2px solid #1E1E50", background: "#0D0C22" }}>
+                  <td colSpan={5} style={{ padding: "11px 12px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 12 }}>TOTAL DEDUCTIVA</td>
+                  <td style={{ padding: "11px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: "#8A9DC0" }}>{conceptosAfectados.length} concepto(s)</td>
+                  <td style={{ padding: "11px 12px", fontFamily: "Work Sans", fontWeight: 800, fontSize: 14, color: "#00A86B" }}>{fmt.currency(montoTotal)}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      )}
+
+      {hayErrores && (
+        <div style={{ background: "rgba(232,52,74,.1)", border: "1px solid rgba(232,52,74,.4)", borderRadius: 8, padding: "10px 16px", marginBottom: 14, display: "flex", gap: 10, alignItems: "center" }}>
+          <span style={{ color: "#E8344A", fontSize: 18 }}>🚫</span>
+          <div style={{ fontSize: 12, color: "#E8344A" }}>
+            <strong>Acción bloqueada.</strong> Corrige las cantidades marcadas antes de continuar. No se puede deducir más de lo contratado disponible.
+          </div>
+        </div>
+      )}
+
+      <MFooter onClose={onClose} onSave={save} label={`Registrar Deductiva #${numeroSig}`} disabled={!ok} />
+    </Modal>
+  );
+}
+
+// ── DETALLE DEDUCTIVA MODAL ──────────────────────────────────────
+function DetalleDeductiva({ deductiva, contrato, onClose }) {
+  return (
+    <Modal title={`Deductiva #${deductiva.numero} — Detalle`} onClose={onClose} wide>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, marginBottom: 20, padding: "16px", background: "#080818", borderRadius: 10, border: "1px solid #1E1E50" }}>
+        <div>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Contrato</div>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{contrato.contratista}</div>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#7A92B5" }}>{contrato.numero} · {fmt.date(deductiva.fecha)}</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 5 }}>Monto Deductiva</div>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 24, color: "#00A86B" }}>{fmt.currency(deductiva.montoTotal)}</div>
+          <Tag label={deductiva.estado} color={deductiva.estado === "aprobada" ? "#00A86B" : "#F0B429"} />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 8 }}>Motivo</div>
+        <div style={{ background: "#080818", borderRadius: 8, padding: "12px 16px", border: "1px solid #1E1E50", fontSize: 13, color: "#E8EDF8", lineHeight: 1.75, whiteSpace: "pre-wrap" }}>{deductiva.descripcion}</div>
+      </div>
+
+      <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 10 }}>Conceptos Deducidos</div>
+      <div style={{ background: "#080818", border: "1px solid #1E1E50", borderRadius: 9, overflow: "hidden", marginBottom: 18 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: "#0D0C22" }}>
+              {["Concepto", "Unidad", "Cantidad Deducida", "P.U.", "Monto"].map(h => (
+                <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {(deductiva.conceptos || []).map((c, i) => (
+              <tr key={i} style={{ borderTop: "1px solid #1E1E50" }}>
+                <td style={{ padding: "11px 14px", fontWeight: 500 }}>{c.descripcion}</td>
+                <td style={{ padding: "11px 14px", fontFamily: "JetBrains Mono", fontSize: 11, color: "#7A92B5" }}>{c.unidad}</td>
+                <td style={{ padding: "11px 14px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#F0B429" }}>{fmt.num(c.cantidadDeducida).toLocaleString()}</td>
+                <td style={{ padding: "11px 14px", fontFamily: "JetBrains Mono", fontSize: 12 }}>{fmt.currency(c.precioUnitario)}</td>
+                <td style={{ padding: "11px 14px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, color: "#00A86B" }}>{fmt.currency(c.montoDeductiva)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: "2px solid #1E1E50", background: "#0D0C22" }}>
+              <td colSpan={4} style={{ padding: "11px 14px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 12 }}>TOTAL</td>
+              <td style={{ padding: "11px 14px", fontFamily: "Work Sans", fontWeight: 800, fontSize: 15, color: "#00A86B" }}>{fmt.currency(deductiva.montoTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button className="bg2" onClick={onClose}>Cerrar</button>
+      </div>
+    </Modal>
+  );
+}
+
+function FConvenio({ contrato, obra, onSave, onClose }) {
+  const [f, setF] = useState({
+    numero: (contrato.convenios?.length || 0) + 1,
+    fecha: "", justificacion: "", clasificacion: "", montoDelta: "",
+    descripcion: "", adjuntoNombre: "", adjuntoUrl: ""
+  });
+  const s = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const monto = fmt.num(f.montoDelta);
+  const ccActual = calcC(contrato);
+  const proyC = ccActual.ma + monto;
+  const otrosC = (obra.contratos || []).filter(c => c.id !== contrato.id).reduce((s, c) => s + calcC(c).ma, 0);
+  const proyO = otrosC + proyC;
+  const sob = proyO > fmt.num(obra.presupuestoAutorizado);
+  const ok = f.fecha && f.justificacion && f.clasificacion && f.montoDelta;
+  return (
+    <Modal title={`Convenio #${f.numero} — ${contrato.contratista}`} onClose={onClose} wide>
+      {sob && <ABox msg={`Sobrecosto de ${fmt.currency(proyO - fmt.num(obra.presupuestoAutorizado))} sobre el techo`} />}
+      <G2>
+        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
+        <Field label="Clasificación" req>
+          <Sel value={f.clasificacion} onChange={v => s("clasificacion", v)} options={CLASIFS.map(c => ({ value: c.value, label: c.label }))} />
+        </Field>
+      </G2>
+      <Field label="Monto Delta (MXN)" req hint="Positivo = incremento · Negativo = deducción">
+        <Inp value={f.montoDelta} onChange={v => s("montoDelta", v)} type="number" placeholder="0" />
+      </Field>
+      <div style={{ marginBottom: 14 }} />
+      <Field label="Causa (resumen)" req hint="Resumen breve — aparece en reportes y dashboard">
+        <Txta value={f.justificacion} onChange={v => s("justificacion", v)} placeholder="Causa que origina el convenio…" rows={2} />
+      </Field>
+      <div style={{ marginBottom: 14 }} />
+      <Field label="Descripción Técnica Detallada" hint="Detalle completo: condición física encontrada, alcance del cambio, impacto en obra, referencias de planos">
+        <Txta value={f.descripcion} onChange={v => s("descripcion", v)} placeholder="Describe con detalle la condición física encontrada, trabajos adicionales requeridos, alcance del cambio de proyecto, referencias a planos o especificaciones…" rows={5} />
+      </Field>
+      <div className="divider" />
+      <SecTitle>Documento de Soporte</SecTitle>
+      <G2>
+        <Field label="Nombre del Documento" hint="Ej. Croquis cimentación norte, Plano AS-BUILT-03">
+          <Inp value={f.adjuntoNombre} onChange={v => s("adjuntoNombre", v)} placeholder="Nombre descriptivo del archivo" />
+        </Field>
+        <Field label="Link del Archivo" hint="Google Drive, OneDrive, Dropbox — URL compartida">
+          <Inp value={f.adjuntoUrl} onChange={v => s("adjuntoUrl", v)} placeholder="https://drive.google.com/..." />
+        </Field>
+      </G2>
+      {f.adjuntoUrl && (
+        <div style={{ background: "rgba(11,205,211,.06)", border: "1px solid rgba(11,205,211,.2)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <span style={{ fontSize: 18 }}>📎</span>
+          <span style={{ fontSize: 13, color: "#8A9DC0", flex: 1 }}>{f.adjuntoNombre || "Documento adjunto"}</span>
+          <a href={f.adjuntoUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#0BCDD3", textDecoration: "none", padding: "4px 10px", border: "1px solid rgba(11,205,211,.3)", borderRadius: 5 }}>Verificar →</a>
+        </div>
+      )}
+      {monto !== 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "12px 14px", background: T.bg, borderRadius: 8, border: `1px solid ${T.border}`, marginTop: 14 }}>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>Contrato actualizado</div><Mn color={T.green} size={13}>{fmt.currency(proyC)}</Mn></div>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>Varianza vs techo</div><Mn color={sob ? T.red : T.green} size={13}>{fmt.currency(fmt.num(obra.presupuestoAutorizado) - proyO)}</Mn></div>
+        </div>
+      )}
+      <MFooter onClose={onClose} onSave={() => ok && onSave({ ...f, montoDelta: monto, descripcion: f.descripcion, adjuntoNombre: f.adjuntoNombre, adjuntoUrl: f.adjuntoUrl, id: uid() })} label="Registrar Convenio" disabled={!ok} />
+    </Modal>
+  );
+}
+
+function FEstimacion({ contrato, onSave, onClose }) {
+  const numSig = (contrato.estimaciones?.length || 0) + 1;
+  const [f, setF] = useState({ numero: numSig, fecha: "", periodo: "", status: "generada", amortizacionAnticipo: contrato.anticipoPct || 20, retencion: contrato.retencionPct || 5, conceptosEjec: {} });
+  const s = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const setCQ = (cid, v) => setF(x => ({ ...x, conceptosEjec: { ...x.conceptosEjec, [cid]: v } }));
+  const allC = [];
+  (contrato.partidas || []).forEach(p => p.conceptos.forEach(c => allC.push({ ...c, partidaNombre: p.nombre })));
+  const subtotal = allC.reduce((s, c) => s + fmt.num(f.conceptosEjec[c.id] || 0) * fmt.num(c.precioUnitario), 0);
+  const amort = subtotal * fmt.num(f.amortizacionAnticipo) / 100;
+  const ret = subtotal * fmt.num(f.retencion) / 100;
+  const neto = subtotal - amort - ret;
+  const ok = f.fecha && f.periodo && subtotal > 0;
+  function save() {
+    if (!ok) return;
+    const conceptos = allC.filter(c => fmt.num(f.conceptosEjec[c.id]) > 0).map(c => ({ conceptoId: c.id, cantidad: fmt.num(f.conceptosEjec[c.id]), monto: fmt.num(f.conceptosEjec[c.id]) * fmt.num(c.precioUnitario) }));
+    onSave({ ...f, conceptos, subtotal, amortizacionAnticipo: fmt.num(f.amortizacionAnticipo), retencion: fmt.num(f.retencion), id: uid() });
+  }
+  return (
+    <Modal title={`Estimación #${numSig} — ${contrato.contratista}`} onClose={onClose} wide>
+      <Grid3>
+        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
+        <Field label="Período" req><Inp value={f.periodo} onChange={v => s("periodo", v)} placeholder="Ej. Julio 2024" /></Field>
+        <Field label="Status"><Sel value={f.status} onChange={v => s("status", v)} options={STATUS_E.map(x => ({ value: x, label: x.charAt(0).toUpperCase() + x.slice(1) }))} /></Field>
+      </Grid3>
+      <Grid2>
+        <Field label="Amortización Anticipo (%)" hint={`= ${fmt.currency(amort)}`}><Inp value={f.amortizacionAnticipo} onChange={v => s("amortizacionAnticipo", v)} type="number" min="0" /></Field>
+        <Field label="Retención de Garantía (%)" hint={`= ${fmt.currency(ret)}`}><Inp value={f.retencion} onChange={v => s("retencion", v)} type="number" min="0" /></Field>
+      </Grid2>
+      <div className="divider" />
+      <SectionTitle>Cantidades Ejecutadas Esta Estimación</SectionTitle>
+      {allC.length === 0 ? (
+        <div style={{ color: "#6A7DA0", fontSize: 13, padding: "12px 0" }}>El contrato no tiene conceptos registrados.</div>
+      ) : (
+        <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 9, overflow: "hidden", marginBottom: 16 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: T.surfaceAlt }}>
+                {["Concepto", "Partida", "Unidad", "Pendiente", "Esta Est.", "Monto"].map(h => (
+                  <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allC.map(c => {
+                const qty = fmt.num(f.conceptosEjec[c.id] || 0);
+                const pend = fmt.num(c.cantContratada) - fmt.num(c.cantEjecutada);
+                return (
+                  <tr key={c.id} className="rh" style={{ borderTop: `1px solid ${T.border}` }}>
+                    <td style={{ padding: "9px 12px" }}>{c.descripcion}</td>
+                    <td style={{ padding: "9px 12px", color: "#6A7DA0", fontSize: 11 }}>{c.partidaNombre}</td>
+                    <td style={{ padding: "9px 12px" }}><Mn color={T.textMuted} size={11}>{c.unidad}</Mn></td>
+                    <td style={{ padding: "9px 12px" }}><Mn color={pend <= 0 ? T.green : T.textPrimary} size={11}>{pend.toLocaleString()}</Mn></td>
+                    <td style={{ padding: "9px 10px", width: 100 }}>
+                      <input className="inf" value={f.conceptosEjec[c.id] || ""} onChange={e => setCQ(c.id, e.target.value)} type="number" min="0" placeholder="0" style={{ fontSize: 12, padding: "5px 8px" }} />
+                    </td>
+                    <td style={{ padding: "9px 12px" }}><Mn color={qty > 0 ? T.green : T.textMuted} size={12}>{qty > 0 ? fmt.currency(qty * fmt.num(c.precioUnitario)) : "—"}</Mn></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, padding: "13px", background: T.surfaceAlt, borderRadius: 9, border: `1px solid ${T.border}` }}>
+        {[{ l: "Subtotal Bruto", v: fmt.currency(subtotal), c: T.textPrimary }, { l: "Amortización", v: `- ${fmt.currency(amort)}`, c: T.yellow }, { l: "Retención", v: `- ${fmt.currency(ret)}`, c: T.orange }, { l: "Neto a Pagar", v: fmt.currency(neto), c: T.green }].map((k, i) => (
+          <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 5, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.c} size={14}>{k.v}</Mn></div>
+        ))}
+      </div>
+      <ModalFooter onClose={onClose} onSave={save} label="Registrar Estimación" disabled={!ok} />
+    </Modal>
+  );
+}
+
+// ─── SIDEBAR ─────────────────────────────────────────────────────
+function Sidebar({ view, setView, data, onAddPlaza, onAddObra }) {
+  const [expU, setExpU] = useState("RE");
+  const [expP, setExpP] = useState(null);
+
+  return (
+    <div style={{ width: 238, flexShrink: 0, height: "100vh", background: T.surface, borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", position: "sticky", top: 0 }}>
+      {/* Logo */}
+      <div style={{ padding: "18px 18px 16px", borderBottom: `1px solid ${T.border}` }}><Logo /></div>
+
+      {/* Main nav */}
+      <div style={{ padding: "10px 10px 0" }}>
+        {[{ id: "dashboard", label: "Dashboard", icon: "▣" }, { id: "portafolio", label: "Portafolio", icon: "◈" }].map(item => (
+          <button key={item.id} className={`nav-btn ${view.type === item.id ? "active" : ""}`} onClick={() => setView({ type: item.id })}>
+            <span style={{ fontSize: 12, color: view.type === item.id ? T.green : T.textMuted }}>{item.icon}</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: view.type === item.id ? T.green : T.textSecondary }}>{item.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Projects tree */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "10px 0" }}>
+        <div style={{ padding: "0 18px 7px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.12em", textTransform: "uppercase" }}>Proyectos</span>
+          <button onClick={onAddPlaza} style={{ fontSize: 12, color: "#6A7DA0", padding: "2px 7px", borderRadius: 4, border: `1px solid ${T.border}`, transition: "all .15s" }} title="Nueva plaza">+</button>
+        </div>
+
+        {data.unidades.map(u => (
+          <div key={u.id}>
+            <button className="tree-btn" onClick={() => { setExpU(expU === u.id ? null : u.id); setView({ type: "unidad", id: u.id }); }}
+              style={{ padding: "7px 18px" }}>
+              <span style={{ fontSize: 9, color: u.color, transition: "transform .2s", transform: expU === u.id ? "rotate(90deg)" : "rotate(0)", display: "inline-block" }}>▶</span>
+              <span style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 11, color: u.color, letterSpacing: "0.08em", textTransform: "uppercase" }}>{u.nombre}</span>
+            </button>
+
+            {expU === u.id && u.plazas.map(p => (
+              <div key={p.id}>
+                <button className="tree-btn" onClick={() => { setExpP(expP === p.id ? null : p.id); setView({ type: "plaza", unidadId: u.id, plazaId: p.id }); }}
+                  style={{ padding: "6px 18px 6px 30px" }}>
+                  <span style={{ fontSize: 8, color: "#6A7DA0", transition: "transform .2s", transform: expP === p.id ? "rotate(90deg)" : "rotate(0)", display: "inline-block" }}>▶</span>
+                  <span style={{ fontSize: 12, color: T.textSecondary, fontWeight: 500 }}>{p.nombre}</span>
+                </button>
+
+                {expP === p.id && (
+                  <>
+                    {p.obras.map(o => {
+                      const oc = calcO(o);
+                      const isA = view.type === "obra" && view.obraId === o.id;
+                      return (
+                        <button key={o.id} className="tree-btn" onClick={() => setView({ type: "obra", unidadId: u.id, plazaId: p.id, obraId: o.id })}
+                          style={{ padding: "5px 18px 5px 42px", background: isA ? T.greenDim : "transparent", borderLeft: isA ? `2px solid ${T.green}` : "2px solid transparent" }}>
+                          <Sem tipo={oc.sem} sz={6} />
+                          <span style={{ fontSize: 12, color: isA ? T.green : T.textSecondary, fontWeight: isA ? 500 : 400, textAlign: "left", lineHeight: 1.3 }}>{o.nombre}</span>
+                        </button>
+                      );
+                    })}
+                    <button className="tree-btn" onClick={() => onAddObra({ unidadId: u.id, plazaId: p.id })}
+                      style={{ padding: "5px 18px 5px 42px" }}>
+                      <span style={{ fontSize: 12, color: "#6A7DA0" }}>+</span>
+                      <span style={{ fontSize: 11, color: "#6A7DA0" }}>Nueva obra</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ padding: "10px 18px", borderTop: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, animation: "pulse 2s infinite" }} />
+        <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.06em" }}>v1.0 · SIGMAWORK</div>
+        <div style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "#4A5880", letterSpacing: "0.05em", marginTop: 4 }}>by Néstor Miguel Reyes H.</div>
+      </div>
+    </div>
+  );
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────
+function Dashboard({ data }) {
+  const [filtroAño, setFiltroAño] = useState("todos");
+  const añosDisponibles = [...new Set(data.unidades.flatMap(u => u.plazas.flatMap(p => p.obras.map(o => o.añoAutorizacion || new Date().getFullYear()))))].sort();
+  function obraVisible(o){ return filtroAño === "todos" || (o.añoAutorizacion || new Date().getFullYear()) === parseInt(filtroAño); }
+  const obras = data.unidades.flatMap(u => u.plazas.flatMap(p => p.obras.filter(o => obraVisible(o)).map(o => ({ o, u, p }))));
+  const tots = obras.reduce((a, { o }) => { const oc = calcO(o); return { aut: a.aut + fmt.num(o.presupuestoAutorizado), cont: a.cont + oc.tc, pag: a.pag + oc.tp }; }, { aut: 0, cont: 0, pag: 0 });
+  const sems = obras.reduce((a, { o }) => { a[calcO(o).sem]++; return a; }, { green: 0, yellow: 0, red: 0 });
+
+  return (
+    <div className="fade-in" style={{ padding: "28px 32px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 26 }}>
+        <div>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 24, letterSpacing: "-0.01em", marginBottom: 3 }}>Dashboard General</div>
+          <div style={{ color: "#6A7DA0", fontSize: 13 }}>Portafolio consolidado · {obras.length} obras{filtroAño !== "todos" ? ` · Año ${filtroAño}` : ""} · {data.unidades.length} unidades</div>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5", marginRight: 4, letterSpacing: "0.08em", textTransform: "uppercase" }}>Año:</span>
+          {["todos", ...añosDisponibles.map(String)].map(a => (
+            <button key={a} onClick={() => setFiltroAño(a)}
+              style={{ fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "6px 14px", borderRadius: 6, border: `1px solid ${filtroAño === a ? "#0BCDD3" : "#1E1E50"}`, background: filtroAño === a ? "rgba(11,205,211,.12)" : "transparent", color: filtroAño === a ? "#0BCDD3" : "#5A6A90", cursor: "pointer", transition: "all .15s" }}>
+              {a === "todos" ? "Todos" : a}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
+        {[
+          { l: "Presupuesto Autorizado", v: fmt.currency(tots.aut), acc: T.textPrimary },
+          { l: "Total Contratado", v: fmt.currency(tots.cont), acc: T.blue, sub: fmt.pct((tots.cont / tots.aut) * 100) + " del techo" },
+          { l: tots.cont > tots.aut ? "Sobrecosto" : "Ahorro", v: fmt.currency(Math.abs(tots.aut - tots.cont)), acc: tots.cont > tots.aut ? T.red : T.green },
+          { l: "Total Pagado", v: fmt.currency(tots.pag), acc: T.yellow, sub: fmt.pct((tots.pag / tots.cont) * 100) + " del contratado" },
+        ].map((k, i) => (
+          <div key={i} className="card" style={{ padding: "18px 18px 14px" }}>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 9 }}>{k.l}</div>
+            <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 20, color: k.acc, marginBottom: 3 }}>{k.v}</div>
+            {k.sub && <div style={{ fontSize: 11, color: "#6A7DA0" }}>{k.sub}</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* Progress */}
+      <div className="card" style={{ padding: 18, marginBottom: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 9 }}>
+          <span style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13 }}>Uso del Presupuesto Consolidado</span>
+          <Mn color={T.green}>{fmt.pct((tots.cont / tots.aut) * 100)}</Mn>
+        </div>
+        <PBar pct={(tots.cont / tots.aut) * 100} />
+      </div>
+
+      {/* By Unit */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
+        {data.unidades.map(u => {
+          const c = calcU(u); const pct = c.aut > 0 ? (c.cont / c.aut) * 100 : 0;
+          return (
+            <div key={u.id} className="card" style={{ padding: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+                <div>
+                  <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, color: u.color, marginBottom: 3 }}>{u.nombre.toUpperCase()}</div>
+                  <div style={{ fontSize: 11, color: "#6A7DA0" }}>{u.plazas.length} plazas · {u.plazas.reduce((s, p) => s + p.obras.length, 0)} obras</div>
+                </div>
+                <Mn color={pct > 100 ? T.red : pct > 90 ? T.yellow : u.color}>{fmt.pct(pct)}</Mn>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+                {[{ l: "Autorizado", v: fmt.currency(c.aut) }, { l: "Contratado", v: fmt.currency(c.cont), acc: u.color }, { l: "Pagado", v: fmt.currency(c.pag) }].map((k, i) => (
+                  <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 5, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.acc} size={13}>{k.v}</Mn></div>
+                ))}
+              </div>
+              <PBar pct={pct} color={u.color} />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Health */}
+      {filtroAño === "todos" && añosDisponibles.length > 0 && (
+        <div className="card" style={{ padding: 18, marginBottom: 18 }}>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13, marginBottom: 16 }}>Resumen por Año</div>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: "#0D0C22" }}>
+                  {["Año", "Obras", "Techo Autorizado", "Contratado", "Pagado", "Avance", "Pateadas"].map(h => (
+                    <th key={h} style={{ padding: "10px 14px", textAlign: h === "Año" ? "left" : "right", fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {añosDisponibles.map(año => {
+                  const od = data.unidades.flatMap(u => u.plazas.flatMap(p => p.obras.filter(o => (o.añoAutorizacion || new Date().getFullYear()) === año)));
+                  const t = od.reduce((a, o) => { const oc = calcO(o); return { aut: a.aut + fmt.num(o.presupuestoAutorizado), cont: a.cont + oc.tc, pag: a.pag + oc.tp }; }, { aut: 0, cont: 0, pag: 0 });
+                  const pct = t.aut > 0 ? (t.cont / t.aut) * 100 : 0;
+                  const pateadas = od.filter(o => (o.historialAños || []).length > 0).length;
+                  return (
+                    <tr key={año} style={{ borderTop: "1px solid #1E1E50", cursor: "pointer" }} onClick={() => setFiltroAño(String(año))}>
+                      <td style={{ padding: "12px 14px" }}>
+                        <span style={{ background: "rgba(11,205,211,.1)", border: "1px solid rgba(11,205,211,.2)", borderRadius: 6, padding: "4px 12px", fontFamily: "JetBrains Mono", fontSize: 13, color: "#0BCDD3", fontWeight: 700 }}>{año}</span>
+                      </td>
+                      <td style={{ padding: "12px 14px", textAlign: "right", fontFamily: "JetBrains Mono", fontSize: 11, color: "#8A9DC0" }}>{od.length}</td>
+                      <td style={{ padding: "12px 14px", textAlign: "right", fontFamily: "JetBrains Mono", fontSize: 12, color: "#E8EDF8" }}>{fmt.currency(t.aut)}</td>
+                      <td style={{ padding: "12px 14px", textAlign: "right", fontFamily: "JetBrains Mono", fontSize: 12, color: "#0BCDD3" }}>{fmt.currency(t.cont)}</td>
+                      <td style={{ padding: "12px 14px", textAlign: "right", fontFamily: "JetBrains Mono", fontSize: 12, color: "#F0B429" }}>{fmt.currency(t.pag)}</td>
+                      <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+                          <div style={{ width: 60, height: 3, background: "#1E1E50", borderRadius: 2, overflow: "hidden" }}>
+                            <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: pct > 100 ? "#E8344A" : pct > 90 ? "#F0B429" : "#00A86B", borderRadius: 2 }} />
+                          </div>
+                          <span style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: pct > 100 ? "#E8344A" : pct > 90 ? "#F0B429" : "#00A86B", minWidth: 40, textAlign: "right" }}>{fmt.pct(pct)}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                        {pateadas > 0 ? <span style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#F0B429" }}>⟳ {pateadas}</span> : <span style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#7A92B5" }}>—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 10, fontSize: 11, color: "#7A92B5" }}>Haz clic en un año para filtrar el dashboard.</div>
+        </div>
+      )}
+
+      <div className="card" style={{ padding: 18 }}>
+        <div style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13, marginBottom: 14 }}>Salud Financiera — {obras.length} Obras</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 18 }}>
+          {[{ tipo: "green", l: "En Control", n: sems.green, d: "< 90% techo" }, { tipo: "yellow", l: "En Alerta", n: sems.yellow, d: "90–100% techo" }, { tipo: "red", l: "Sobrecosto", n: sems.red, d: "> 100% techo" }].map(s => (
+            <div key={s.tipo} style={{ background: T.surfaceAlt, borderRadius: 8, padding: "13px 15px", border: `1px solid ${T.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><Sem tipo={s.tipo} sz={9} /><span style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 12 }}>{s.l}</span></div>
+              <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 28, color: s.tipo === "green" ? T.green : s.tipo === "yellow" ? T.yellow : T.red }}>{s.n}</div>
+              <div style={{ fontSize: 11, color: "#6A7DA0", marginTop: 2 }}>{s.d}</div>
+            </div>
+          ))}
+        </div>
+        {obras.map(({ o, u, p }) => {
+          const oc = calcO(o);
+          return (
+            <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderTop: `1px solid ${T.border}` }}>
+              <Sem tipo={oc.sem} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{o.nombre}</div>
+                <div style={{ fontSize: 11, color: "#6A7DA0" }}>{u.nombre} · {p.nombre}</div>
+              </div>
+              <div style={{ textAlign: "right", minWidth: 130 }}>
+                <Mn color={oc.varianza < 0 ? T.red : T.green} size={12}>{oc.varianza < 0 ? "▲" : "▼"} {fmt.currency(Math.abs(oc.varianza))}</Mn>
+                <div style={{ fontSize: 11, color: "#6A7DA0" }}>{fmt.pct(oc.pct)} techo</div>
+              </div>
+              <div style={{ width: 72 }}><PBar pct={oc.pct} /></div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── VISTA OBRA ──────────────────────────────────────────────────
+
+// ── FORM: Cambio de Año ──────────────────────────────────────────
+function FCambioAño({obra,onSave,onClose}){
+  const añoActual=obra.añoAutorizacion||new Date().getFullYear();
+  const[f,setF]=useState({añoNuevo:"",fecha:new Date().toISOString().slice(0,10),motivo:""});
+  const s=(k,v)=>setF(x=>({...x,[k]:v}));
+  const ok=f.añoNuevo&&f.fecha&&f.motivo&&parseInt(f.añoNuevo)!==añoActual;
+  const años=[2023,2024,2025,2026,2027,2028,2029,2030].filter(y=>y!==añoActual);
+  return(
+    <Modal title={`Cambio de Año — ${obra.nombre}`} onClose={onClose}>
+      <div style={{background:"rgba(240,180,41,.08)",border:"1px solid rgba(240,180,41,.3)",borderRadius:8,padding:"12px 16px",marginBottom:18,display:"flex",gap:10,alignItems:"flex-start"}}>
+        <span style={{color:"#F0B429",fontSize:16}}>⚡</span>
+        <div>
+          <div style={{fontFamily:"Work Sans",fontWeight:700,fontSize:13,color:"#F0B429",marginBottom:3}}>Modificación de año</div>
+          <div style={{fontSize:12,color:"#8A9DC0"}}>Año actual: <strong style={{color:"#E8EDF8"}}>{añoActual}</strong> — Este cambio quedará registrado en el historial de la obra.</div>
+        </div>
+      </div>
+      <G3>
+        <Field label="Año Actual"><div style={{padding:"10px 13px",background:"#080818",border:"1px solid #1E1E50",borderRadius:7,fontFamily:"JetBrains Mono",fontSize:14,color:"#5A6A90"}}>{añoActual}</div></Field>
+        <Field label="Nuevo Año" req><Sel value={f.añoNuevo} onChange={v=>s("añoNuevo",v)} options={años.map(y=>({value:y,label:String(y)}))}/></Field>
+        <Field label="Fecha del Cambio" req><Inp value={f.fecha} onChange={v=>s("fecha",v)} type="date"/></Field>
+      </G3>
+      <Field label="Motivo del Cambio" req hint="Ej. Restricción de flujo Q3 2026, retraso en permisos, etc.">
+        <Txta value={f.motivo} onChange={v=>s("motivo",v)} placeholder="Describe la razón por la que se patea la obra al siguiente año…" rows={4}/>
+      </Field>
+      {f.añoNuevo&&<div style={{marginTop:14,padding:"12px 16px",background:"#080818",borderRadius:8,border:"1px solid #1E1E50",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{fontFamily:"JetBrains Mono",fontSize:11,color:"#5A6A90"}}>Cambio registrado</div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontFamily:"Work Sans",fontWeight:700,color:"#F0B429",fontSize:16}}>{añoActual}</span>
+          <span style={{color:"#5A6A90"}}>→</span>
+          <span style={{fontFamily:"Work Sans",fontWeight:700,color:"#0BCDD3",fontSize:16}}>{f.añoNuevo}</span>
+        </div>
+      </div>}
+      <MFooter onClose={onClose} onSave={()=>ok&&onSave({añoAnterior:añoActual,añoNuevo:parseInt(f.añoNuevo),fecha:f.fecha,motivo:f.motivo,id:uid()})} label="Registrar Cambio de Año" disabled={!ok}/>
+    </Modal>
+  );
+}
+
+function VistaObra({ obraData, onUpdate }) {
+  const { obra, unidad, plaza } = obraData;
+  const [tab, setTab] = useState("resumen");
+  const [modal, setModal] = useState(null);
+  const oc = calcO(obra);
+
+  const saveP = p => { onUpdate(unidad.id, plaza.id, { ...obra, parametricos: [...(obra.parametricos || []), p].sort((a, b) => b.clase - a.clase) }); setModal(null); };
+  const saveC = c => { const ex = (obra.contratos || []).find(x => x.id === c.id); const cs = ex ? obra.contratos.map(x => x.id === c.id ? c : x) : [...(obra.contratos || []), c]; onUpdate(unidad.id, plaza.id, { ...obra, contratos: cs }); setModal(null); };
+  const saveCV = (cid, cv) => { const cs = obra.contratos.map(c => c.id === cid ? { ...c, convenios: [...(c.convenios || []), cv] } : c); onUpdate(unidad.id, plaza.id, { ...obra, contratos: cs }); setModal(null); };
+  const saveDed = (cid, ded) => { const cs = obra.contratos.map(c => c.id === cid ? { ...c, deductivas: [...(c.deductivas || []), ded] } : c); onUpdate(unidad.id, plaza.id, { ...obra, contratos: cs }); setModal(null); };
+  const saveE = (cid, e) => { const cs = obra.contratos.map(c => c.id === cid ? { ...c, estimaciones: [...(c.estimaciones || []), e] } : c); onUpdate(unidad.id, plaza.id, { ...obra, contratos: cs }); setModal(null); };
+  const saveCambioAño = (cambio) => {
+    const updObra = { ...obra, añoAutorizacion: cambio.añoNuevo, historialAños: [...(obra.historialAños || []), cambio] };
+    onUpdate(unidad.id, plaza.id, updObra);
+    setModal(null);
+  };
+  const añoActual = obra.añoAutorizacion || new Date().getFullYear();
+  const historial = obra.historialAños || [];
+
+  const TABS = [{ id: "resumen", l: "Resumen" }, { id: "parametricos", l: "Paramétricos" }, { id: "contratos", l: `Contratos (${(obra.contratos || []).length})` }, { id: "flujo", l: "Flujo" }, { id: "historial", l: `Historial Año (${historial.length})` }];
+
+  return (
+    <div className="fade-in" style={{ padding: "28px 32px" }}>
+      {modal?.type === "cambioAño" && <FCambioAño obra={obra} onSave={saveCambioAño} onClose={() => setModal(null)} />}
+      {modal?.type === "deductiva" && <FDeductiva contrato={modal.c} obra={obra} onSave={ded => saveDed(modal.c.id, ded)} onClose={() => setModal(null)} />}
+      {modal?.type === "detalleDeductiva" && <DetalleDeductiva deductiva={modal.ded} contrato={modal.c} onClose={() => setModal(null)} />}
+      {modal?.type === "detalleConvenio" && <DetalleConvenio convenio={modal.cv} contrato={modal.c} onClose={() => setModal(null)} />}
+      {modal?.type === "param" && <FParam obra={obra} onSave={saveP} onClose={() => setModal(null)} />}
+      {modal?.type === "contrato" && <FContrato obra={obra} onSave={saveC} onClose={() => setModal(null)} edit={modal.edit} />}
+      {modal?.type === "convenio" && <FConvenio contrato={modal.c} obra={obra} onSave={cv => saveCV(modal.c.id, cv)} onClose={() => setModal(null)} />}
+      {modal?.type === "estimacion" && <FEstimacion contrato={modal.c} onSave={e => saveE(modal.c.id, e)} onClose={() => setModal(null)} />}
+
+      {/* Breadcrumb */}
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 18, fontFamily: "JetBrains Mono", fontSize: 11, color: "#6A7DA0" }}>
+        <span style={{ color: unidad.color }}>{unidad.nombre}</span><span>›</span><span>{plaza.nombre}</span><span>›</span><span style={{ color: T.textPrimary }}>{obra.nombre}</span>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 5 }}>
+            <Sem tipo={oc.sem} sz={10} />
+            <h1 style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 22, letterSpacing: "-0.01em" }}>{obra.nombre}</h1>
+          </div>
+          <div style={{ fontSize: 12, color: "#6A7DA0" }}>{(obra.contratos || []).length} contratos · {(obra.parametricos || []).length} estimaciones paramétricas</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+            <span style={{ background: "rgba(11,205,211,.1)", border: "1px solid rgba(11,205,211,.25)", borderRadius: 6, padding: "3px 10px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#0BCDD3", fontWeight: 600 }}>{añoActual}</span>
+            {historial.length > 0 && <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5" }}>{historial.length} cambio{historial.length !== 1 ? "s" : ""} de año</span>}
+            <button className="ab" onClick={() => setModal({ type: "cambioAño" })} style={{ fontSize: 11, padding: "3px 10px" }}>⟳ Cambiar año</button>
+          </div>
+        </div>
+        {oc.varianza < 0 && (
+          <div style={{ background: T.redDim, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "9px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: T.red }}>⚠</span>
+            <div><div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 12, color: T.red }}>SOBRECOSTO</div><Mn color={T.red} size={12}>{fmt.currency(Math.abs(oc.varianza))}</Mn></div>
+          </div>
+        )}
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 11, marginBottom: 20 }}>
+        {[
+          { l: "Techo Autorizado", v: fmt.currency(obra.presupuestoAutorizado) },
+          { l: "Total Contratado", v: fmt.currency(oc.tc), acc: T.blue },
+          { l: oc.varianza >= 0 ? "Ahorro" : "Sobrecosto", v: fmt.currency(Math.abs(oc.varianza)), acc: oc.varianza >= 0 ? T.green : T.red },
+          { l: "Total Pagado", v: fmt.currency(oc.tp), acc: T.yellow },
+          { l: "% Techo Usado", v: fmt.pct(oc.pct), acc: oc.pct > 100 ? T.red : oc.pct > 90 ? T.yellow : T.green },
+        ].map((k, i) => (
+          <div key={i} className="card" style={{ padding: "14px 15px" }}>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 8 }}>{k.l}</div>
+            <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 16, color: k.acc || T.textPrimary }}>{k.v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card" style={{ padding: "13px 18px", marginBottom: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ fontSize: 12, color: "#6A7DA0" }}>Uso del presupuesto autorizado</span>
+          <Mn color={oc.pct > 100 ? T.red : T.green}>{fmt.pct(oc.pct)}</Mn>
+        </div>
+        <PBar pct={oc.pct} />
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${T.border}`, marginBottom: 22 }}>
+        {TABS.map(t => <button key={t.id} className={`tb ${tab === t.id ? "on" : ""}`} onClick={() => setTab(t.id)}>{t.l}</button>)}
+      </div>
+
+      {/* RESUMEN */}
+      {tab === "resumen" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div className="card" style={{ padding: 18 }}>
+            <div style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13, marginBottom: 14 }}>Contratos</div>
+            {(obra.contratos || []).length === 0 && <div style={{ color: "#6A7DA0", fontSize: 13 }}>Sin contratos registrados.</div>}
+            {(obra.contratos || []).map(c => {
+              const cv = calcC(c);
+              return (
+                <div key={c.id} style={{ padding: "11px 0", borderBottom: `1px solid ${T.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div><div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{c.contratista}</div><CtTag v={c.clasificacion} /></div>
+                    <Mn color={T.blue} size={13}>{fmt.currency(cv.ma)}</Mn>
+                  </div>
+                  <PBar pct={(cv.tb / cv.ma) * 100} color={T.blue} />
+                </div>
+              );
+            })}
+          </div>
+          <div className="card" style={{ padding: 18 }}>
+            <div style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13, marginBottom: 14 }}>Costos Adicionales</div>
+            {Object.entries(oc.cl).filter(([, v]) => v > 0).length === 0 ? (
+              <div style={{ color: "#6A7DA0", fontSize: 13 }}>Sin costos adicionales clasificados.</div>
+            ) : Object.entries(oc.cl).filter(([, v]) => v > 0).map(([k, v]) => {
+              const tot = Object.values(oc.cl).reduce((s, x) => s + x, 0);
+              const colors = { modificacion: T.blue, omision: T.yellow, situacion_fisica: T.orange, mala_ejecucion: T.red };
+              return (
+                <div key={k} style={{ padding: "9px 0", borderBottom: `1px solid ${T.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><CtTag v={k} /><Mn size={12}>{fmt.currency(v)}</Mn></div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ flex: 1 }}><PBar pct={(v / tot) * 100} color={colors[k]} /></div>
+                    <Mn color={T.textMuted} size={10}>{fmt.pct((v / tot) * 100)}</Mn>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* PARAMÉTRICOS */}
+      {tab === "parametricos" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+            <button className="bp" onClick={() => setModal({ type: "param" })}>+ Nueva Estimación Paramétrica</button>
+          </div>
+          <div className="card" style={{ overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: T.surfaceAlt }}>
+                  {["Clase", "Monto", "Var. vs Techo", "Fecha", "Supuestos"].map(h => (
+                    <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(obra.parametricos || []).map((p, i) => {
+                  const v = ((p.monto - obra.presupuestoAutorizado) / obra.presupuestoAutorizado) * 100;
+                  const claseColor = [T.textMuted, T.green, T.yellow, T.blue, T.silver, T.textMuted][6 - p.clase] || T.textMuted;
+                  return (
+                    <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
+                      <td style={{ padding: "11px 16px" }}><Tag label={`CLASE ${p.clase}`} color={claseColor} /></td>
+                      <td style={{ padding: "11px 16px" }}><Mn size={13}>{fmt.currency(p.monto)}</Mn></td>
+                      <td style={{ padding: "11px 16px" }}><Mn color={v > 0 ? T.red : T.green} size={12}>{v > 0 ? "+" : ""}{fmt.pct(v)}</Mn></td>
+                      <td style={{ padding: "11px 16px" }}><Mn color={T.textMuted} size={11}>{fmt.date(p.fecha)}</Mn></td>
+                      <td style={{ padding: "11px 16px", fontSize: 12, color: T.textSecondary }}>{p.supuestos}</td>
+                    </tr>
+                  );
+                })}
+                <tr style={{ borderTop: `2px solid ${T.border}`, background: T.surfaceAlt }}>
+                  <td colSpan={2} style={{ padding: "11px 16px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 12, color: T.green }}>TECHO AUTORIZADO — {fmt.currency(obra.presupuestoAutorizado)}</td>
+                  <td colSpan={3} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* CONTRATOS */}
+      {tab === "contratos" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+            <button className="bp" onClick={() => setModal({ type: "contrato" })}>+ Nuevo Contrato</button>
+          </div>
+          {(obra.contratos || []).length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px", color: "#6A7DA0", fontSize: 14, border: `1px dashed ${T.border}`, borderRadius: 11 }}>Sin contratos. Agrega el primer contrato.</div>
+          )}
+          {(obra.contratos || []).map(c => {
+            const cv = calcC(c);
+            return (
+              <div key={c.id} className="card" style={{ marginBottom: 12, padding: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 5 }}>
+                      <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 14 }}>{c.contratista}</div>
+                      <CtTag v={c.clasificacion} />
+                    </div>
+                    <Mn color={T.textMuted} size={11}>{c.numero} · {fmt.date(c.fechaFirma)}</Mn>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 18, color: T.blue }}>{fmt.currency(cv.ma)}</div>
+                    {cv.cvTotal !== 0 && <Mn color={cv.cvTotal > 0 ? T.red : T.green} size={11}>{cv.cvTotal > 0 ? "+" : ""}{fmt.currency(cv.cvTotal)} convenios</Mn>}
+                  {cv.dedT < 0 && <Mn color="#00A86B" size={11}>{fmt.currency(cv.dedT)} deductivas</Mn>}
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 12 }}>
+                  {[{ l: "Monto Vigente", v: fmt.currency(cv.ma) }, { l: `Anticipo ${c.anticipoPct}%`, v: fmt.currency(cv.ant), acc: T.green }, { l: "Estimado", v: fmt.currency(cv.tb), acc: T.blue }, { l: "Neto Pagado", v: fmt.currency(cv.neto), acc: T.yellow }].map((k, i) => (
+                    <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.acc} size={13}>{k.v}</Mn></div>
+                  ))}
+                  {cv.dedT < 0 && <div style={{ gridColumn: "span 2" }}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>Deductivas ({(c.deductivas || []).length})</div><Mn color="#00A86B" size={13}>{fmt.currency(cv.dedT)}</Mn></div>}
+                </div>
+                <PBar pct={cv.ma > 0 ? (cv.tb / cv.ma) * 100 : 0} />
+                <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                  <button className="ab" onClick={() => setModal({ type: "contrato", edit: c })}>✎ Editar</button>
+                  <button className="ab" onClick={() => setModal({ type: "convenio", c })}>+ Convenio ({(c.convenios || []).length})</button>
+                  <button className="ab" onClick={() => setModal({ type: "estimacion", c })}>+ Estimación ({(c.estimaciones || []).length})</button>
+                  {(c.convenios || []).map(cv => (
+                    <button key={cv.id} className="ab" onClick={() => setModal({ type: "detalleConvenio", cv, c })}
+                      style={{ borderColor: "rgba(11,205,211,.35)", color: "#0BCDD3" }}>
+                      📋 Conv. #{cv.numero}
+                    </button>
+                  ))}
+                  <button className="ab" onClick={() => setModal({ type: "deductiva", c })}
+                    style={{ borderColor: "rgba(0,168,107,.35)", color: "#00A86B" }}>
+                    ➖ Nueva Deductiva ({(c.deductivas || []).length})
+                  </button>
+                  {(c.deductivas || []).map(ded => (
+                    <button key={ded.id} className="ab" onClick={() => setModal({ type: "detalleDeductiva", ded, c })}
+                      style={{ borderColor: "rgba(0,168,107,.35)", color: "#00A86B" }}>
+                      📉 Ded. #{ded.numero}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* FLUJO */}
+      {tab === "flujo" && (() => {
+        const pagos = [];
+        (obra.contratos || []).forEach(c => (c.estimaciones || []).forEach(e => {
+          const b = fmt.num(e.subtotal), am = b * fmt.num(e.amortizacionAnticipo) / 100, r = b * fmt.num(e.retencion) / 100;
+          pagos.push({ fecha: e.fecha, desc: `Est. #${e.numero}`, neto: b - am - r, status: e.status, contratista: c.contratista, b, am, r });
+        }));
+        pagos.sort((a, b) => a.fecha.localeCompare(b.fecha));
+        const totPag = pagos.filter(p => p.status === "pagada").reduce((s, p) => s + p.neto, 0);
+        const totPend = pagos.filter(p => p.status !== "pagada").reduce((s, p) => s + p.neto, 0);
+        return (
+          <div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <div className="card" style={{ padding: 16 }}><KPI label="Total Pagado" value={fmt.currency(totPag)} accent={T.green} /></div>
+              <div className="card" style={{ padding: 16 }}><KPI label="Por Pagar" value={fmt.currency(totPend)} accent={T.yellow} /></div>
+            </div>
+            <div className="card" style={{ overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead><tr style={{ background: T.surfaceAlt }}>{["Fecha", "Estimación", "Contratista", "Subtotal", "Amort.", "Retención", "Neto", "Status"].map(h => <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {pagos.map((p, i) => (
+                    <tr key={i} className="rh" style={{ borderTop: `1px solid ${T.border}` }}>
+                      <td style={{ padding: "10px 12px" }}><Mn color={T.textMuted} size={11}>{fmt.date(p.fecha)}</Mn></td>
+                      <td style={{ padding: "10px 12px", fontSize: 13 }}>{p.desc}</td>
+                      <td style={{ padding: "10px 12px", fontSize: 12, color: T.textSecondary }}>{p.contratista.split(" ")[0]}</td>
+                      <td style={{ padding: "10px 12px" }}><Mn size={12}>{fmt.currency(p.b)}</Mn></td>
+                      <td style={{ padding: "10px 12px" }}><Mn color={T.yellow} size={12}>{fmt.currency(p.am)}</Mn></td>
+                      <td style={{ padding: "10px 12px" }}><Mn color={T.orange} size={12}>{fmt.currency(p.r)}</Mn></td>
+                      <td style={{ padding: "10px 12px" }}><Mn color={T.green} size={12}>{fmt.currency(p.neto)}</Mn></td>
+                      <td style={{ padding: "10px 12px" }}><StTag s={p.status} /></td>
+                    </tr>
+                  ))}
+                  {pagos.length === 0 && <tr><td colSpan={8} style={{ padding: "20px", color: "#6A7DA0", fontSize: 13, textAlign: "center" }}>Sin estimaciones registradas.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+      {tab === "historial" && (
+        <div>
+          {historial.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px", color: "#7A92B5", fontSize: 13, border: "1px dashed #1E1E50", borderRadius: 11 }}>
+              Sin cambios de año. El año de autorización actual es <strong style={{ color: "#0BCDD3" }}>{añoActual}</strong>.
+            </div>
+          ) : (
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Línea de Tiempo de Cambios</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {[...historial].sort((a, b) => a.fecha.localeCompare(b.fecha)).map((h, i) => (
+                    <React.Fragment key={h.id}>
+                      {i === 0 && <div style={{ background: "#1E1E50", borderRadius: 20, padding: "6px 14px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#7A92B5" }}>{h.añoAnterior}</div>}
+                      <span style={{ color: "#F0B429" }}>→</span>
+                      <div style={{ background: "rgba(11,205,211,.1)", border: "1px solid rgba(11,205,211,.3)", borderRadius: 20, padding: "6px 14px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#0BCDD3", fontWeight: 600 }}>{h.añoNuevo}</div>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+              <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Registro de Cambios</div>
+              {[...historial].sort((a, b) => b.fecha.localeCompare(a.fecha)).map(h => (
+                <div key={h.id} style={{ background: "#0D0C22", border: "1px solid #1E1E50", borderRadius: 10, padding: 18, marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ background: "#1E1E50", borderRadius: 6, padding: "4px 10px", fontFamily: "JetBrains Mono", fontSize: 13, color: "#7A92B5" }}>{h.añoAnterior}</span>
+                      <span style={{ color: "#F0B429", fontSize: 18 }}>→</span>
+                      <span style={{ background: "rgba(11,205,211,.1)", border: "1px solid rgba(11,205,211,.25)", borderRadius: 6, padding: "4px 10px", fontFamily: "JetBrains Mono", fontSize: 13, color: "#0BCDD3", fontWeight: 700 }}>{h.añoNuevo}</span>
+                    </div>
+                    <span style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#7A92B5" }}>{fmt.date(h.fecha)}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: "#8A9DC0", lineHeight: 1.6, borderLeft: "3px solid rgba(240,180,41,.4)", paddingLeft: 12 }}>{h.motivo}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── VISTA UNIDAD ────────────────────────────────────────────────
+function VistaUnidad({ unidad, setView }) {
+  const c = calcU(unidad);
+  return (
+    <div className="fade-in" style={{ padding: "28px 32px" }}>
+      <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 22, color: unidad.color, marginBottom: 4 }}>{unidad.nombre}</div>
+      <div style={{ color: "#6A7DA0", fontSize: 13, marginBottom: 24 }}>{unidad.plazas.length} plazas · {unidad.plazas.reduce((s, p) => s + p.obras.length, 0)} obras</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+        {[{ l: "Autorizado", v: fmt.currency(c.aut) }, { l: "Contratado", v: fmt.currency(c.cont), acc: unidad.color }, { l: "Varianza", v: fmt.currency(c.aut - c.cont), acc: c.cont > c.aut ? T.red : T.green }].map((k, i) => (
+          <div key={i} className="card" style={{ padding: 18 }}><KPI label={k.l} value={k.v} accent={k.acc} /></div>
+        ))}
+      </div>
+      {unidad.plazas.map(p => {
+        const pc = calcP(p);
+        return (
+          <div key={p.id} style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 14 }}>{p.nombre}</div>
+              <Mn color={T.textMuted} size={11}>{p.obras.length} obras · {fmt.currency(pc.aut)}</Mn>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 10 }}>
+              {p.obras.map(o => {
+                const oc = calcO(o);
+                return (
+                  <div key={o.id} className="card ch" onClick={() => setView({ type: "obra", unidadId: unidad.id, plazaId: p.id, obraId: o.id })} style={{ padding: 16, cursor: "pointer" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}><Sem tipo={oc.sem} /><span style={{ fontSize: 13, fontWeight: 500 }}>{o.nombre}</span></div>
+                    <Mn color={unidad.color} size={15}>{fmt.currency(oc.tc)}</Mn>
+                    <div style={{ margin: "8px 0" }}><PBar pct={oc.pct} color={unidad.color} /></div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <Mn color={T.textMuted} size={11}>{fmt.pct(oc.pct)} techo</Mn>
+                      <Mn color={oc.varianza >= 0 ? T.green : T.red} size={11}>{fmt.currency(Math.abs(oc.varianza))}</Mn>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── APP ROOT ────────────────────────────────────────────────────
+
+// ── PORTAFOLIO VIEW ─────────────────────────────────────────────
+function Portafolio({ data, setView }) {
+  const añosDisponibles = [...new Set(
+    data.unidades.flatMap(u => u.plazas.flatMap(p => p.obras.map(o => o.añoAutorizacion || new Date().getFullYear())))
+  )].sort();
+  const [filtroAño, setFiltroAño] = useState("todos");
+  const totalObras = data.unidades.reduce((s, u) => s + u.plazas.reduce((s2, p) => s2 + p.obras.length, 0), 0);
+
+  function obraVisible(o) {
+    if (filtroAño === "todos") return true;
+    return (o.añoAutorizacion || new Date().getFullYear()) === parseInt(filtroAño);
+  }
+
+  const obrasFilt = data.unidades.flatMap(u => u.plazas.flatMap(p => p.obras.filter(obraVisible).map(o => ({ o, u, p }))));
+  const tots = obrasFilt.reduce((a, { o }) => {
+    const oc = calcO(o);
+    return { aut: a.aut + fmt.num(o.presupuestoAutorizado), cont: a.cont + oc.tc, pag: a.pag + oc.tp };
+  }, { aut: 0, cont: 0, pag: 0 });
+  const conCambio = obrasFilt.filter(({ o }) => (o.historialAños || []).length > 0).length;
+
+  return (
+    <div className="fade-in" style={{ padding: "28px 32px" }}>
+
+      {/* Header con filtro */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+        <div>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 24, letterSpacing: "-0.01em", marginBottom: 3 }}>Portafolio</div>
+          <div style={{ color: "#A0B8D8", fontSize: 13 }}>{obrasFilt.length} obra{obrasFilt.length !== 1 ? "s" : ""}{filtroAño !== "todos" ? ` · Año ${filtroAño}` : ` de ${totalObras} total`}</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5", letterSpacing: "0.08em", textTransform: "uppercase" }}>Año:</span>
+          <select value={filtroAño} onChange={e => setFiltroAño(e.target.value)}
+            style={{ fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, padding: "8px 16px", borderRadius: 7, border: "1px solid #1E1E50", background: "#080818", color: "#0BCDD3", cursor: "pointer", outline: "none", minWidth: 140 }}>
+            <option value="todos">Todos los años</option>
+            {añosDisponibles.map(a => <option key={a} value={String(a)}>{a}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Resumen del filtro activo */}
+      {filtroAño !== "todos" && (
+        <div style={{ background: "rgba(11,205,211,.06)", border: "1px solid rgba(11,205,211,.2)", borderRadius: 12, padding: "16px 20px", marginBottom: 24, display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 6 }}>Obras {filtroAño}</div><div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 18, color: "#0BCDD3" }}>{obrasFilt.length}</div></div>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 6 }}>Techo Autorizado</div><div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 15 }}>{fmt.currency(tots.aut)}</div></div>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 6 }}>Total Pagado</div><div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 15, color: "#F0B429" }}>{fmt.currency(tots.pag)}</div></div>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 6 }}>Obras Pateadas</div><div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 18, color: conCambio > 0 ? "#F0B429" : "#00A86B" }}>{conCambio}</div></div>
+        </div>
+      )}
+
+      {/* Unidades */}
+      {data.unidades.map(u => {
+        const obrasU = u.plazas.flatMap(p => p.obras.filter(obraVisible));
+        if (obrasU.length === 0 && filtroAño !== "todos") return null;
+        const uc = calcU(u);
+        const pct = uc.aut > 0 ? (uc.cont / uc.aut) * 100 : 0;
+        return (
+          <div key={u.id} style={{ marginBottom: 32 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, paddingBottom: 12, borderBottom: `2px solid ${u.color}40` }}>
+              <div style={{ width: 4, height: 32, background: u.color, borderRadius: 2 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 18, color: u.color }}>{u.nombre.toUpperCase()}</div>
+                <div style={{ fontSize: 12, color: "#A0B8D8", marginTop: 2 }}>{u.plazas.length} plazas · {u.plazas.reduce((s, p) => s + p.obras.length, 0)} obras totales</div>
+              </div>
+              {filtroAño === "todos" && (
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontFamily: "JetBrains Mono", fontSize: 18, fontWeight: 700, color: pct > 100 ? "#E8344A" : pct > 90 ? "#F0B429" : u.color }}>{fmt.pct(pct)}</div>
+                  <div style={{ fontSize: 11, color: "#7A92B5" }}>del techo</div>
+                </div>
+              )}
+            </div>
+
+            {u.plazas.map(p => {
+              const obrasPF = p.obras.filter(obraVisible);
+              if (obrasPF.length === 0 && filtroAño !== "todos") return null;
+              return (
+                <div key={p.id} style={{ marginBottom: 20 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <span style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 14 }}>{p.nombre}</span>
+                    <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5" }}>{obrasPF.length}/{p.obras.length} obras</span>
+                    <div style={{ flex: 1, height: 1, background: "#1E1E50", marginLeft: 8 }} />
+                  </div>
+                  {obrasPF.length === 0 && (
+                    <div style={{ padding: "14px 18px", color: "#7A92B5", fontSize: 12, border: "1px dashed #1E1E50", borderRadius: 8 }}>Sin obras para {filtroAño}.</div>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 12 }}>
+                    {obrasPF.map(o => {
+                      const oc = calcO(o);
+                      const hist = o.historialAños || [];
+                      return (
+                        <div key={o.id} className="card ch" onClick={() => setView({ type: "obra", unidadId: u.id, plazaId: p.id, obraId: o.id })}
+                          style={{ padding: 16, cursor: "pointer", borderLeft: `3px solid ${oc.sem === "green" ? u.color : oc.sem === "yellow" ? "#F0B429" : "#E8344A"}` }}>
+                          <div style={{ marginBottom: 10 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                              <Sem tipo={oc.sem} sz={7} />
+                              <span style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 13 }}>{o.nombre}</span>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <span style={{ background: "rgba(11,205,211,.1)", border: "1px solid rgba(11,205,211,.2)", borderRadius: 4, padding: "2px 8px", fontFamily: "JetBrains Mono", fontSize: 10, color: "#0BCDD3" }}>{o.añoAutorizacion || new Date().getFullYear()}</span>
+                              {hist.length > 0 && <span style={{ background: "rgba(240,180,41,.1)", border: "1px solid rgba(240,180,41,.25)", borderRadius: 4, padding: "2px 8px", fontFamily: "JetBrains Mono", fontSize: 10, color: "#F0B429" }}>⟳ {hist.length}x pateada</span>}
+                            </div>
+                          </div>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                            <div style={{ background: "#080818", borderRadius: 6, padding: "7px 10px" }}>
+                              <div style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "#7A92B5", textTransform: "uppercase", marginBottom: 3 }}>Techo</div>
+                              <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 12 }}>{fmt.currency(o.presupuestoAutorizado)}</div>
+                            </div>
+                            <div style={{ background: "#080818", borderRadius: 6, padding: "7px 10px" }}>
+                              <div style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "#7A92B5", textTransform: "uppercase", marginBottom: 3 }}>Contratado</div>
+                              <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 12, color: u.color }}>{fmt.currency(oc.tc)}</div>
+                            </div>
+                          </div>
+                          <PBar pct={oc.pct} color={u.color} />
+                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                            <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5" }}>{fmt.pct(oc.pct)} techo</span>
+                            <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: oc.varianza >= 0 ? "#00A86B" : "#E8344A" }}>{oc.varianza >= 0 ? "▼" : "▲"} {fmt.currency(Math.abs(oc.varianza))}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+function App() {
+  const [data, setData] = useState(SEED);
+  const [view, setView] = useState({ type: "dashboard" });
+  const [modal, setModal] = useState(null);
+
+  function updateObra(uId, pId, updOb) {
+    setData(d => ({ ...d, unidades: d.unidades.map(u => u.id !== uId ? u : { ...u, plazas: u.plazas.map(p => p.id !== pId ? p : { ...p, obras: p.obras.map(o => o.id !== updOb.id ? o : updOb) }) }) }));
+  }
+  function addObra(obra) {
+    setData(d => ({ ...d, unidades: d.unidades.map(u => u.id !== obra.unidadId ? u : { ...u, plazas: u.plazas.map(p => p.id !== obra.plazaId ? p : { ...p, obras: [...p.obras, obra] }) }) }));
+    setModal(null);
+    setView({ type: "obra", unidadId: obra.unidadId, plazaId: obra.plazaId, obraId: obra.id });
+  }
+  function addPlaza(plaza) {
+    setData(d => ({ ...d, unidades: d.unidades.map(u => u.id !== plaza.unidadId ? u : { ...u, plazas: [...u.plazas, plaza] }) }));
+    setModal(null);
+  }
+
+  function renderMain() {
+    if (view.type === "dashboard" || view.type === "portafolio") return <Dashboard data={data} />;
+    if (view.type === "unidad") { const u = data.unidades.find(u => u.id === view.id); return u ? <VistaUnidad unidad={u} setView={setView} /> : null; }
+    if (view.type === "plaza") { const u = data.unidades.find(u => u.id === view.unidadId); return u ? <VistaUnidad unidad={u} setView={setView} /> : null; }
+    if (view.type === "obra") {
+      const u = data.unidades.find(u => u.id === view.unidadId);
+      const p = u?.plazas.find(p => p.id === view.plazaId);
+      const o = p?.obras.find(o => o.id === view.obraId);
+      if (!u || !p || !o) return null;
+      return <VistaObra obraData={{ obra: o, unidad: u, plaza: p }} onUpdate={updateObra} />;
+    }
+    return null;
+  }
+
+  return (
+    <div style={{ display: "flex", minHeight: "100vh" }}>
+      {modal?.type === "plaza" && <FPlaza data={data} onSave={addPlaza} onClose={() => setModal(null)} />}
+      {modal?.type === "obra" && <FObra data={data} onSave={addObra} onClose={() => setModal(null)} ctx={modal.ctx} />}
+      <Sidebar view={view} setView={setView} data={data} onAddPlaza={() => setModal({ type: "plaza" })} onAddObra={ctx => setModal({ type: "obra", ctx })} />
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>{renderMain()}</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+</script>
+</body>
+</html>
