@@ -51,6 +51,8 @@
     .nav-btn.active{background:rgba(11,205,211,.08);border-color:rgba(11,205,211,.2);}
     .tree-btn{width:100%;display:flex;align-items:center;gap:8px;background:transparent;border:none;transition:all .15s;text-align:left;}
     .spinner{width:20px;height:20px;border:2px solid #1E1E50;border-top-color:#0BCDD3;border-radius:50%;animation:spin .8s linear infinite;}
+    .fl2{color:#6A8AB5 !important;}
+    .kpi-label{font-family:JetBrains Mono,monospace;font-size:9px;color:#6A8AB5;letter-spacing:.1em;text-transform:uppercase;margin-bottom:9px;}
     #root{display:flex;min-height:100vh;}
   </style>
 </head>
@@ -117,7 +119,7 @@ const T = {
   // Text
   textPrimary:   "#E8EDF8",
   textSecondary: "#8A9DC0",
-  textMuted:     "#5A6A90",
+  textMuted:     "#6A8AB5",
 };
 
 // ─── FONTS ──────────────────────────────────────────────────────
@@ -1087,10 +1089,9 @@ function Dashboard({ data }) {
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5", marginRight: 4, letterSpacing: "0.08em", textTransform: "uppercase" }}>Año:</span>
           {["todos", ...añosDisponibles.map(String)].map(a => (
             <button key={a} onClick={() => setFiltroAño(a)}
-              style={{ fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "6px 14px", borderRadius: 6, border: `1px solid ${filtroAño === a ? "#0BCDD3" : "#1E1E50"}`, background: filtroAño === a ? "rgba(11,205,211,.12)" : "transparent", color: filtroAño === a ? "#0BCDD3" : "#5A6A90", cursor: "pointer", transition: "all .15s" }}>
-              {a === "todos" ? "Todos" : a}
-            </button>
-          ))}
+              style={{ fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "6px 14px", borderRadius: 6, border: `1px solid $<option value="todos">Todos los años</option>
+            {añosDisponibles.map(a => <option key={a} value={String(a)}>{a}</option>)}
+          </select>
         </div>
       </div>
 
@@ -1767,7 +1768,8 @@ function App() {
   }
 
   function renderMain() {
-    if (view.type === "dashboard" || view.type === "portafolio") return <Dashboard data={data} />;
+    if (view.type === "dashboard") return <Dashboard data={data} />;
+    if (view.type === "portafolio") return <Portafolio data={data} setView={setView} />;
     if (view.type === "unidad") { const u = data.unidades.find(u => u.id === view.id); return u ? <VistaUnidad unidad={u} setView={setView} /> : null; }
     if (view.type === "plaza") { const u = data.unidades.find(u => u.id === view.unidadId); return u ? <VistaUnidad unidad={u} setView={setView} /> : null; }
     if (view.type === "obra") {
