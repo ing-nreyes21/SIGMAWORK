@@ -285,9 +285,9 @@ function Logo() {
 
 function Sem({ tipo, sz = 8 }) {
   const m = { green: T.green, yellow: T.yellow, red: T.red };
-  return <span style={{ display: "inline-block", width: sz, height: sz, borderRadius: "50%", background: m[tipo] || T.textMuted, boxShadow: `0 0 6px ${(m[tipo] || T.textMuted)}90`, flexShrink: 0 }} />;
+  return <span style={{ display: "inline-block", width: sz, height: sz, borderRadius: "50%", background: m[tipo] || T.textMuted, boxShadow: "0 0 6px " + (m[tipo] || T.textMuted) + "90", flexShrink: 0 }} />;
 }
-function Tag({ label, color = T.green }) { return <span className="tag" style={{ background: `${color}18`, color, border: `1px solid ${color}28` }}>{label}</span>; }
+function Tag({ label, color = T.green }) { return <span className="tag" style={{ background: color + "18", color, border: "1px solid " + color + "28" }}>{label}</span>; }
 function CtTag({ v }) {
   const m = { normal: { l: "Normal", c: T.silver }, modificacion: { l: "Mod. Proyecto", c: T.blue }, omision: { l: "Omisión", c: T.yellow }, situacion_fisica: { l: "Sit. Física", c: T.orange }, mala_ejecucion: { l: "Mala Ejecución", c: T.red } };
   const s = m[v] || m.normal; return <Tag label={s.l} color={s.c} />;
@@ -301,7 +301,7 @@ function PBar({ pct, color }) {
   const c = pct > 100 ? T.red : pct > 90 ? T.yellow : color || T.green;
   return (
     <div style={{ width: "100%", height: 3, background: T.border, borderRadius: 2, overflow: "hidden" }}>
-      <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: c, borderRadius: 2, transition: "width .5s ease" }} />
+      <div style={{ width: Math.min(pct, 100) + "%", height: "100%", background: c, borderRadius: 2, transition: "width .5s ease" }} />
     </div>
   );
 }
@@ -324,8 +324,8 @@ function Modal({ title, onClose, children, wide }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "#00000090", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24, animation: "bdIn .2s ease" }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ background: T.surface, border: `1px solid ${T.borderLight}`, borderRadius: 14, width: "100%", maxWidth: wide ? 900 : 580, maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 28px 70px #000000B0", animation: "modalIn .22s ease" }}>
-        <div style={{ padding: "20px 24px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+      <div style={{ background: T.surface, border: "1px solid " + T.borderLight, borderRadius: 14, width: "100%", maxWidth: wide ? 900 : 580, maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 28px 70px #000000B0", animation: "modalIn .22s ease" }}>
+        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid " + T.border, display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
           <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 15 }}>{title}</div>
           <button onClick={onClose} style={{ color: "#6A7DA0", fontSize: 18, padding: "2px 6px", borderRadius: 4, transition: "color .15s" }}>✕</button>
         </div>
@@ -371,7 +371,7 @@ function ModalFooter({ onClose, onSave, label = "Guardar", disabled }) {
 }
 function AlertBox({ msg, color = T.red, bg }) {
   return (
-    <div style={{ background: bg || `${color}14`, border: `1px solid ${color}40`, borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 9, alignItems: "flex-start" }}>
+    <div style={{ background: bg || color + "14", border: "1px solid " + color + "40", borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 9, alignItems: "flex-start" }}>
       <span style={{ color, fontSize: 14, marginTop: 1 }}>⚠</span>
       <span style={{ fontSize: 12, color }}>{msg}</span>
     </div>
@@ -431,7 +431,7 @@ function FParam({ obra, onSave, onClose }) {
   const diff = fmt.num(f.monto) - fmt.num(obra.presupuestoAutorizado);
   return (
     <Modal title="Nueva Estimación Paramétrica" onClose={onClose}>
-      <div style={{ background: T.blueDim, border: `1px solid ${T.blue}30`, borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: T.textSecondary }}>
+      <div style={{ background: T.blueDim, border: "1px solid " + T.blue + "30", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: T.textSecondary }}>
         Techo autorizado: <Mn color={T.green} size={12}>{fmt.currency(obra.presupuestoAutorizado)}</Mn>
       </div>
       <Grid3>
@@ -501,7 +501,7 @@ function FContrato({ obra, onSave, onClose, edit }) {
         <Field label="Retención Garantía (%)"><Inp value={f.retencionPct} onChange={v => s("retencionPct", v)} type="number" min="0" placeholder="5" /></Field>
       </Grid3>
       {m > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, padding: "13px", background: T.bg, borderRadius: 8, border: `1px solid ${T.border}`, marginBottom: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, padding: "13px", background: T.bg, borderRadius: 8, border: "1px solid " + T.border, marginBottom: 14 }}>
           {[{ l: "Monto contrato", v: fmt.currency(m), c: T.textPrimary }, { l: "Anticipo a erogar", v: fmt.currency(ant), c: T.green }, { l: "Varianza vs techo", v: fmt.currency(fmt.num(obra.presupuestoAutorizado) - proy), c: sob ? T.red : T.green }].map((k, i) => (
             <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.c} size={13}>{k.v}</Mn></div>
           ))}
@@ -513,13 +513,13 @@ function FContrato({ obra, onSave, onClose, edit }) {
         <button className="bg2" onClick={addP} style={{ fontSize: 12, padding: "6px 12px" }}>+ Partida</button>
       </div>
       {f.partidas.length === 0 && (
-        <div style={{ textAlign: "center", padding: "20px", color: "#6A7DA0", fontSize: 13, border: `1px dashed ${T.border}`, borderRadius: 8, marginBottom: 14 }}>
+        <div style={{ textAlign: "center", padding: "20px", color: "#6A7DA0", fontSize: 13, border: "1px dashed " + T.border, borderRadius: 8, marginBottom: 14 }}>
           Sin partidas. Agrega una partida para registrar conceptos.
         </div>
       )}
       {f.partidas.map((p, pi) => (
-        <div key={p.id} style={{ background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 9, marginBottom: 10, overflow: "hidden" }}>
-          <div style={{ padding: "11px 14px", display: "flex", gap: 10, alignItems: "center", borderBottom: `1px solid ${T.border}` }}>
+        <div key={p.id} style={{ background: T.surfaceAlt, border: "1px solid " + T.border, borderRadius: 9, marginBottom: 10, overflow: "hidden" }}>
+          <div style={{ padding: "11px 14px", display: "flex", gap: 10, alignItems: "center", borderBottom: "1px solid " + T.border }}>
             <input className="inf" value={p.nombre} onChange={e => upP(p.id, "nombre", e.target.value)} placeholder={`Partida ${pi + 1}`} style={{ flex: 1, fontSize: 13, fontWeight: 600 }} />
             <button className="ab d" onClick={() => delP(p.id)}>✕</button>
           </div>
@@ -529,7 +529,7 @@ function FContrato({ obra, onSave, onClose, edit }) {
                 <thead>
                   <tr style={{ background: T.bg }}>
                     {["Descripción", "Unidad", "Cantidad", "P.U.", "Total", ""].map(h => (
-                      <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500, borderBottom: `1px solid ${T.border}` }}>{h}</th>
+                      <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500, borderBottom: "1px solid " + T.border }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -537,7 +537,7 @@ function FContrato({ obra, onSave, onClose, edit }) {
                   {p.conceptos.map(cn => {
                     const tot = fmt.num(cn.cantContratada) * fmt.num(cn.precioUnitario);
                     return (
-                      <tr key={cn.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                      <tr key={cn.id} style={{ borderBottom: "1px solid " + T.border }}>
                         <td style={{ padding: "7px 12px" }}><input className="inf" value={cn.descripcion} onChange={e => upC(p.id, cn.id, "descripcion", e.target.value)} placeholder="Descripción" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
                         <td style={{ padding: "7px 10px", width: 80 }}>
                           <select className="inf" value={cn.unidad} onChange={e => upC(p.id, cn.id, "unidad", e.target.value)} style={{ fontSize: 12, padding: "5px 7px" }}>
@@ -561,7 +561,7 @@ function FContrato({ obra, onSave, onClose, edit }) {
           </div>
         </div>
       ))}
-      {totP > 0 && <div style={{ textAlign: "right", padding: "10px 0", borderTop: `1px solid ${T.border}` }}><Mn color={T.green} size={12}>Total partidas: {fmt.currency(totP)}</Mn></div>}
+      {totP > 0 && <div style={{ textAlign: "right", padding: "10px 0", borderTop: "1px solid " + T.border }}><Mn color={T.green} size={12}>Total partidas: {fmt.currency(totP)}</Mn></div>}
       <ModalFooter onClose={onClose} onSave={save} label={edit ? "Actualizar Contrato" : "Registrar Contrato"} disabled={!ok} />
     </Modal>
   );
@@ -592,7 +592,7 @@ function DetalleConvenio({convenio,contrato,onClose}){
       <div style={{marginBottom:20}}>
         <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Clasificación</div>
         <div style={{display:"inline-flex",alignItems:"center",gap:8,background:`${clasifColors[convenio.clasificacion]}18`,border:`1px solid ${clasifColors[convenio.clasificacion]}40`,borderRadius:8,padding:"8px 14px"}}>
-          <span style={{width:8,height:8,borderRadius:"50%",background:clasifColors[convenio.clasificacion],display:"inline-block",boxShadow:`0 0 6px ${clasifColors[convenio.clasificacion]}`}}/>
+          <span style={{width:8,height:8,borderRadius:"50%",background:clasifColors[convenio.clasificacion],display:"inline-block",boxShadow:"0 0 6px " + clasifColors[convenio.clasificacion]}}/>
           <span style={{fontFamily:"Work Sans",fontWeight:600,fontSize:14,color:clasifColors[convenio.clasificacion]}}>{clasifLabels[convenio.clasificacion]||convenio.clasificacion}</span>
         </div>
       </div>
@@ -908,7 +908,7 @@ function FConvenio({ contrato, obra, onSave, onClose }) {
         </div>
       )}
       {monto !== 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "12px 14px", background: T.bg, borderRadius: 8, border: `1px solid ${T.border}`, marginTop: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "12px 14px", background: T.bg, borderRadius: 8, border: "1px solid " + T.border, marginTop: 14 }}>
           <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>Contrato actualizado</div><Mn color={T.green} size={13}>{fmt.currency(proyC)}</Mn></div>
           <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>Varianza vs techo</div><Mn color={sob ? T.red : T.green} size={13}>{fmt.currency(fmt.num(obra.presupuestoAutorizado) - proyO)}</Mn></div>
         </div>
@@ -951,7 +951,7 @@ function FEstimacion({ contrato, onSave, onClose }) {
       {allC.length === 0 ? (
         <div style={{ color: "#6A7DA0", fontSize: 13, padding: "12px 0" }}>El contrato no tiene conceptos registrados.</div>
       ) : (
-        <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 9, overflow: "hidden", marginBottom: 16 }}>
+        <div style={{ background: T.bg, border: "1px solid " + T.border, borderRadius: 9, overflow: "hidden", marginBottom: 16 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ background: T.surfaceAlt }}>
@@ -965,7 +965,7 @@ function FEstimacion({ contrato, onSave, onClose }) {
                 const qty = fmt.num(f.conceptosEjec[c.id] || 0);
                 const pend = fmt.num(c.cantContratada) - fmt.num(c.cantEjecutada);
                 return (
-                  <tr key={c.id} className="rh" style={{ borderTop: `1px solid ${T.border}` }}>
+                  <tr key={c.id} className="rh" style={{ borderTop: "1px solid " + T.border }}>
                     <td style={{ padding: "9px 12px" }}>{c.descripcion}</td>
                     <td style={{ padding: "9px 12px", color: "#6A7DA0", fontSize: 11 }}>{c.partidaNombre}</td>
                     <td style={{ padding: "9px 12px" }}><Mn color={T.textMuted} size={11}>{c.unidad}</Mn></td>
@@ -981,7 +981,7 @@ function FEstimacion({ contrato, onSave, onClose }) {
           </table>
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, padding: "13px", background: T.surfaceAlt, borderRadius: 9, border: `1px solid ${T.border}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, padding: "13px", background: T.surfaceAlt, borderRadius: 9, border: "1px solid " + T.border }}>
         {[{ l: "Subtotal Bruto", v: fmt.currency(subtotal), c: T.textPrimary }, { l: "Amortización", v: `- ${fmt.currency(amort)}`, c: T.yellow }, { l: "Retención", v: `- ${fmt.currency(ret)}`, c: T.orange }, { l: "Neto a Pagar", v: fmt.currency(neto), c: T.green }].map((k, i) => (
           <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 5, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.c} size={14}>{k.v}</Mn></div>
         ))}
@@ -997,9 +997,9 @@ function Sidebar({ view, setView, data, onAddPlaza, onAddObra }) {
   const [expP, setExpP] = useState(null);
 
   return (
-    <div style={{ width: 238, flexShrink: 0, height: "100vh", background: T.surface, borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", position: "sticky", top: 0 }}>
+    <div style={{ width: 238, flexShrink: 0, height: "100vh", background: T.surface, borderRight: "1px solid " + T.border, display: "flex", flexDirection: "column", position: "sticky", top: 0 }}>
       {/* Logo */}
-      <div style={{ padding: "18px 18px 16px", borderBottom: `1px solid ${T.border}` }}><Logo /></div>
+      <div style={{ padding: "18px 18px 16px", borderBottom: "1px solid " + T.border }}><Logo /></div>
 
       {/* Main nav */}
       <div style={{ padding: "10px 10px 0" }}>
@@ -1015,7 +1015,7 @@ function Sidebar({ view, setView, data, onAddPlaza, onAddObra }) {
       <div style={{ flex: 1, overflowY: "auto", padding: "10px 0" }}>
         <div style={{ padding: "0 18px 7px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.12em", textTransform: "uppercase" }}>Proyectos</span>
-          <button onClick={onAddPlaza} style={{ fontSize: 12, color: "#6A7DA0", padding: "2px 7px", borderRadius: 4, border: `1px solid ${T.border}`, transition: "all .15s" }} title="Nueva plaza">+</button>
+          <button onClick={onAddPlaza} style={{ fontSize: 12, color: "#6A7DA0", padding: "2px 7px", borderRadius: 4, border: "1px solid " + T.border, transition: "all .15s" }} title="Nueva plaza">+</button>
         </div>
 
         {data.unidades.map(u => (
@@ -1041,7 +1041,7 @@ function Sidebar({ view, setView, data, onAddPlaza, onAddObra }) {
                       const isA = view.type === "obra" && view.obraId === o.id;
                       return (
                         <button key={o.id} className="tree-btn" onClick={() => setView({ type: "obra", unidadId: u.id, plazaId: p.id, obraId: o.id })}
-                          style={{ padding: "5px 18px 5px 42px", background: isA ? T.greenDim : "transparent", borderLeft: isA ? `2px solid ${T.green}` : "2px solid transparent" }}>
+                          style={{ padding: "5px 18px 5px 42px", background: isA ? T.greenDim : "transparent", borderLeft: isA ? "2px solid " + T.green : "2px solid transparent" }}>
                           <Sem tipo={oc.sem} sz={6} />
                           <span style={{ fontSize: 12, color: isA ? T.green : T.textSecondary, fontWeight: isA ? 500 : 400, textAlign: "left", lineHeight: 1.3 }}>{o.nombre}</span>
                         </button>
@@ -1060,7 +1060,7 @@ function Sidebar({ view, setView, data, onAddPlaza, onAddObra }) {
         ))}
       </div>
 
-      <div style={{ padding: "10px 18px", borderTop: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ padding: "10px 18px", borderTop: "1px solid " + T.border, display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, animation: "pulse 2s infinite" }} />
         <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.06em" }}>v1.0 · SIGMAWORK</div>
         <div style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "#4A5880", letterSpacing: "0.05em", marginTop: 4 }}>by Néstor Miguel Reyes H.</div>
@@ -1175,7 +1175,7 @@ function Dashboard({ data }) {
                       <td style={{ padding: "12px 14px", textAlign: "right" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
                           <div style={{ width: 60, height: 3, background: "#1E1E50", borderRadius: 2, overflow: "hidden" }}>
-                            <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: pct > 100 ? "#E8344A" : pct > 90 ? "#F0B429" : "#00A86B", borderRadius: 2 }} />
+                            <div style={{ width: (Math.min(pct, 100)) + "%", height: "100%", background: pct > 100 ? "#E8344A" : pct > 90 ? "#F0B429" : "#00A86B", borderRadius: 2 }} />
                           </div>
                           <span style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: pct > 100 ? "#E8344A" : pct > 90 ? "#F0B429" : "#00A86B", minWidth: 40, textAlign: "right" }}>{fmt.pct(pct)}</span>
                         </div>
@@ -1197,7 +1197,7 @@ function Dashboard({ data }) {
         <div style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13, marginBottom: 14 }}>Salud Financiera — {obras.length} Obras</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 18 }}>
           {[{ tipo: "green", l: "En Control", n: sems.green, d: "< 90% techo" }, { tipo: "yellow", l: "En Alerta", n: sems.yellow, d: "90–100% techo" }, { tipo: "red", l: "Sobrecosto", n: sems.red, d: "> 100% techo" }].map(s => (
-            <div key={s.tipo} style={{ background: T.surfaceAlt, borderRadius: 8, padding: "13px 15px", border: `1px solid ${T.border}` }}>
+            <div key={s.tipo} style={{ background: T.surfaceAlt, borderRadius: 8, padding: "13px 15px", border: "1px solid " + T.border }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}><Sem tipo={s.tipo} sz={9} /><span style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 12 }}>{s.l}</span></div>
               <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 28, color: s.tipo === "green" ? T.green : s.tipo === "yellow" ? T.yellow : T.red }}>{s.n}</div>
               <div style={{ fontSize: 11, color: "#6A7DA0", marginTop: 2 }}>{s.d}</div>
@@ -1207,7 +1207,7 @@ function Dashboard({ data }) {
         {obras.map(({ o, u, p }) => {
           const oc = calcO(o);
           return (
-            <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderTop: `1px solid ${T.border}` }}>
+            <div key={o.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderTop: "1px solid " + T.border }}>
               <Sem tipo={oc.sem} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 500 }}>{o.nombre}</div>
@@ -1316,7 +1316,7 @@ function VistaObra({ obraData, onUpdate }) {
           </div>
         </div>
         {oc.varianza < 0 && (
-          <div style={{ background: T.redDim, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "9px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ background: T.redDim, border: "1px solid " + T.red + "40", borderRadius: 8, padding: "9px 14px", display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ color: T.red }}>⚠</span>
             <div><div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 12, color: T.red }}>SOBRECOSTO</div><Mn color={T.red} size={12}>{fmt.currency(Math.abs(oc.varianza))}</Mn></div>
           </div>
@@ -1348,7 +1348,7 @@ function VistaObra({ obraData, onUpdate }) {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 4, borderBottom: `1px solid ${T.border}`, marginBottom: 22 }}>
+      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid " + T.border, marginBottom: 22 }}>
         {TABS.map(t => <button key={t.id} className={`tb ${tab === t.id ? "on" : ""}`} onClick={() => setTab(t.id)}>{t.l}</button>)}
       </div>
 
@@ -1361,7 +1361,7 @@ function VistaObra({ obraData, onUpdate }) {
             {(obra.contratos || []).map(c => {
               const cv = calcC(c);
               return (
-                <div key={c.id} style={{ padding: "11px 0", borderBottom: `1px solid ${T.border}` }}>
+                <div key={c.id} style={{ padding: "11px 0", borderBottom: "1px solid " + T.border }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <div><div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{c.contratista}</div><CtTag v={c.clasificacion} /></div>
                     <Mn color={T.blue} size={13}>{fmt.currency(cv.ma)}</Mn>
@@ -1379,7 +1379,7 @@ function VistaObra({ obraData, onUpdate }) {
               const tot = Object.values(oc.cl).reduce((s, x) => s + x, 0);
               const colors = { modificacion: T.blue, omision: T.yellow, situacion_fisica: T.orange, mala_ejecucion: T.red };
               return (
-                <div key={k} style={{ padding: "9px 0", borderBottom: `1px solid ${T.border}` }}>
+                <div key={k} style={{ padding: "9px 0", borderBottom: "1px solid " + T.border }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}><CtTag v={k} /><Mn size={12}>{fmt.currency(v)}</Mn></div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <div style={{ flex: 1 }}><PBar pct={(v / tot) * 100} color={colors[k]} /></div>
@@ -1412,7 +1412,7 @@ function VistaObra({ obraData, onUpdate }) {
                   const v = ((p.monto - obra.presupuestoAutorizado) / obra.presupuestoAutorizado) * 100;
                   const claseColor = [T.textMuted, T.green, T.yellow, T.blue, T.silver, T.textMuted][6 - p.clase] || T.textMuted;
                   return (
-                    <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
+                    <tr key={i} style={{ borderTop: "1px solid " + T.border }}>
                       <td style={{ padding: "11px 16px" }}><Tag label={`CLASE ${p.clase}`} color={claseColor} /></td>
                       <td style={{ padding: "11px 16px" }}><Mn size={13}>{fmt.currency(p.monto)}</Mn></td>
                       <td style={{ padding: "11px 16px" }}><Mn color={v > 0 ? T.red : T.green} size={12}>{v > 0 ? "+" : ""}{fmt.pct(v)}</Mn></td>
@@ -1421,7 +1421,7 @@ function VistaObra({ obraData, onUpdate }) {
                     </tr>
                   );
                 })}
-                <tr style={{ borderTop: `2px solid ${T.border}`, background: T.surfaceAlt }}>
+                <tr style={{ borderTop: "2px solid " + T.border, background: T.surfaceAlt }}>
                   <td colSpan={2} style={{ padding: "11px 16px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 12, color: T.green }}>TECHO AUTORIZADO — {fmt.currency(obra.presupuestoAutorizado)}</td>
                   <td colSpan={3} />
                 </tr>
@@ -1438,7 +1438,7 @@ function VistaObra({ obraData, onUpdate }) {
             <button className="bp" onClick={() => setModal({ type: "contrato" })}>+ Nuevo Contrato</button>
           </div>
           {(obra.contratos || []).length === 0 && (
-            <div style={{ textAlign: "center", padding: "40px", color: "#6A7DA0", fontSize: 14, border: `1px dashed ${T.border}`, borderRadius: 11 }}>Sin contratos. Agrega el primer contrato.</div>
+            <div style={{ textAlign: "center", padding: "40px", color: "#6A7DA0", fontSize: 14, border: "1px dashed " + T.border, borderRadius: 11 }}>Sin contratos. Agrega el primer contrato.</div>
           )}
           {(obra.contratos || []).map(c => {
             const cv = calcC(c);
@@ -1513,7 +1513,7 @@ function VistaObra({ obraData, onUpdate }) {
                 <thead><tr style={{ background: T.surfaceAlt }}>{["Fecha", "Estimación", "Contratista", "Subtotal", "Amort.", "Retención", "Neto", "Status"].map(h => <th key={h} style={{ padding: "10px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>)}</tr></thead>
                 <tbody>
                   {pagos.map((p, i) => (
-                    <tr key={i} className="rh" style={{ borderTop: `1px solid ${T.border}` }}>
+                    <tr key={i} className="rh" style={{ borderTop: "1px solid " + T.border }}>
                       <td style={{ padding: "10px 12px" }}><Mn color={T.textMuted} size={11}>{fmt.date(p.fecha)}</Mn></td>
                       <td style={{ padding: "10px 12px", fontSize: 13 }}>{p.desc}</td>
                       <td style={{ padding: "10px 12px", fontSize: 12, color: T.textSecondary }}>{p.contratista.split(" ")[0]}</td>
@@ -1675,7 +1675,7 @@ function Portafolio({ data, setView }) {
         const pct = uc.aut > 0 ? (uc.cont / uc.aut) * 100 : 0;
         return (
           <div key={u.id} style={{ marginBottom: 32 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, paddingBottom: 12, borderBottom: `2px solid ${u.color}40` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, paddingBottom: 12, borderBottom: "2px solid " + u.color + "40" }}>
               <div style={{ width: 4, height: 32, background: u.color, borderRadius: 2 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 18, color: u.color }}>{u.nombre.toUpperCase()}</div>
@@ -1708,7 +1708,7 @@ function Portafolio({ data, setView }) {
                       const hist = o.historialAños || [];
                       return (
                         <div key={o.id} className="card ch" onClick={() => setView({ type: "obra", unidadId: u.id, plazaId: p.id, obraId: o.id })}
-                          style={{ padding: 16, cursor: "pointer", borderLeft: `3px solid ${oc.sem === "green" ? u.color : oc.sem === "yellow" ? "#F0B429" : "#E8344A"}` }}>
+                          style={{ padding: 16, cursor: "pointer", borderLeft: "3px solid " + (oc.sem === "green" ? u.color : oc.sem === "yellow" ? "#F0B429" : "#E8344A") }}>
                           <div style={{ marginBottom: 10 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
                               <Sem tipo={oc.sem} sz={7} />
