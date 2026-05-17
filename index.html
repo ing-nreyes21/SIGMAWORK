@@ -1078,15 +1078,14 @@ function Dashboard({ data }) {
           <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 24, letterSpacing: "-0.01em", marginBottom: 3 }}>Dashboard General</div>
           <div style={{ color: "#6A7DA0", fontSize: 13 }}>Portafolio consolidado · {obras.length} obras{filtroAño !== "todos" ? " · Año " + (filtroAño) : ""} · {data.unidades.length} unidades</div>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-          <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5", marginRight: 4, letterSpacing: "0.08em", textTransform: "uppercase" }}>Año:</span>
-          {["todos", ...añosDisponibles.map(String)].map(a => (
-            <button key={a} onClick={() => setFiltroAño(a)}
-              style={{ fontFamily: "JetBrains Mono", fontSize: 11, fontWeight: 600, padding: "6px 14px", borderRadius: 6, border: '1px solid $<option value="todos">Todos los años</option>
-            {añosDisponibles.map(a => <option key={a} value={String(a)}>{a}</option>)}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5", letterSpacing: "0.08em", textTransform: "uppercase" }}>AÑO:</span>
+          <select value={filtroAño} onChange={function(e){ setFiltroAño(e.target.value); }}
+            style={{ fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 7, border: "1px solid #1E1E50", background: "#080818", color: "#0BCDD3", cursor: "pointer", outline: "none", minWidth: 140 }}>
+            <option value="todos">Todos los años</option>
+            {añosDisponibles.map(function(a){ return React.createElement("option", {key: a, value: String(a)}, a); })}
           </select>
-        </div>
-      </div>
+        </div> </div>
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 20 }}>
