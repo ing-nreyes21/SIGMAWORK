@@ -196,6 +196,14 @@ function calcC(c) {
   const tr = ests.reduce((s, e) => s + fmt.num(e.subtotal) * fmt.num(e.retencion) / 100, 0);
   return { ma, ant, cvTotal, tb, ta, tr, neto: tb - ta - tr, pend: ma - tb, antPend: ant - ta };
 }
+function cantDeducidaConcepto(contrato, conceptoId) {
+  return (contrato.deductivas || []).filter(d => d.estado !== "cancelada")
+    .reduce((s, d) => s + (d.conceptos || []).filter(c => c.conceptoId === conceptoId)
+    .reduce((s2, c) => s2 + fmt.num(c.cantidadDeducida), 0), 0);
+}
+function cantDisponibleDeducir(contrato, concepto) {
+  return fmt.num(concepto.cantContratada) - cantDeducidaConcepto(contrato, concepto.id);
+}
 function calcO(o) {
   const tc = (o.contratos || []).reduce((s, c) => s + calcC(c).ma, 0);
   const t = fmt.num(o.presupuestoAutorizado);
@@ -206,7 +214,54 @@ function calcO(o) {
     (c.convenios || []).forEach(cv => { cl[cv.clasificacion] = (cl[cv.clasificacion] || 0) + fmt.num(cv.montoDelta); });
   });
   const tp = (o.contratos || []).reduce((s, c) => s + calcC(c).neto, 0);
-  return { tc, varianza: t - tc, pct, cl, tp, sem: pct <= 90 ? "green" : pct <= 100 ? "yellow" : "red" };
+  // ── Comparativo engine ────────────────────────────────────────
+  var comparativo = null;
+  var techoParam = (o.parametricos || []).find(p => p.esTecho);
+  if (techoParam && (techoParam.partidas || []).length > 0) {
+    var compPartidas = (techoParam.partidas || []).map(pp => {
+      var paramTotal = (pp.conceptos || []).reduce((s, c) => s + fmt.num(c.cantidad) * fmt.num(c.precioUnitario), 0);
+      var linkedPartidas = [];
+      (o.contratos || []).forEach(ct => {
+        (ct.partidas || []).forEach(cp => {
+          if (cp.parametricaRef === pp.id) linkedPartidas.push({ ...cp, contrato: ct });
+        });
+      });
+      var contTotal = linkedPartidas.reduce((s, cp) => s + (cp.conceptos || []).reduce((s2, cn) => s2 + fmt.num(cn.cantContratada) * fmt.num(cn.precioUnitario), 0), 0);
+      var status = pp.noEjecutable ? "no-ejecutable" : linkedPartidas.length === 0 ? "pendiente" : contTotal > paramTotal ? "sobrecosto" : contTotal < paramTotal ? "ahorro" : "igual";
+      return { id: pp.id, nombre: pp.nombre, tipo: pp.tipo || "HC", noEjecutable: pp.noEjecutable || false, paramTotal, contTotal, varianza: paramTotal - contTotal, status, linkedCount: linkedPartidas.length };
+    });
+    var extras = [];
+    (o.contratos || []).forEach(ct => {
+      (ct.partidas || []).forEach(cp => {
+        if (!cp.parametricaRef) {
+          var ext = (cp.conceptos || []).reduce((s, cn) => s + fmt.num(cn.cantContratada) * fmt.num(cn.precioUnitario), 0);
+          if (ext > 0) extras.push({ nombre: cp.nombre, contrato: ct.contratista, monto: ext, tipo: ct.tipoContrato || "" });
+        }
+      });
+    });
+    var totalExtras = extras.reduce((s, e) => s + e.monto, 0);
+    var totalNoEjec = compPartidas.filter(p => p.noEjecutable).reduce((s, p) => s + p.paramTotal, 0);
+    var totalPendiente = compPartidas.filter(p => p.status === "pendiente").reduce((s, p) => s + p.paramTotal, 0);
+    var totalAhorro = compPartidas.filter(p => p.status === "ahorro").reduce((s, p) => s + p.varianza, 0) + totalNoEjec - totalExtras;
+    comparativo = { partidas: compPartidas, extras, totalExtras, totalNoEjec, totalPendiente, totalAhorro };
+  }
+  // HC/SC breakdown
+  const tcHC = (o.contratos || []).filter(c => c.tipoContrato === "HC").reduce((s, c) => s + calcC(c).ma, 0);
+  const tcSC = (o.contratos || []).filter(c => c.tipoContrato === "SC").reduce((s, c) => s + calcC(c).ma, 0);
+  // Latest parametric HC/SC
+  var lastParam = null;
+  if ((o.parametricos || []).length > 0) {
+    lastParam = [...o.parametricos].sort((a, b) => a.clase - b.clase)[0];
+  }
+  const paramHC = lastParam ? (fmt.num(lastParam.montoHC) || 0) : 0;
+  const paramSC = lastParam ? (fmt.num(lastParam.montoSC) || 0) : 0;
+  const paramTotal = lastParam ? fmt.num(lastParam.monto) : 0;
+  // Techo history
+  const historialTechos = o.historialTechos || [];
+  return { tc, varianza: t - tc, pct, cl, tp, sem: pct <= 90 ? "green" : pct <= 100 ? "yellow" : "red",
+    tcHC, tcSC, paramHC, paramSC, paramTotal, historialTechos, comparativo,
+    sobrecostoHC: paramHC > 0 && tcHC > paramHC,
+    sobrecostoSC: paramSC > 0 && tcSC > paramSC };
 }
 function calcP(p) { return (p.obras || []).reduce((a, o) => { const c = calcO(o); return { aut: a.aut + fmt.num(o.presupuestoAutorizado), cont: a.cont + c.tc, pag: a.pag + c.tp }; }, { aut: 0, cont: 0, pag: 0 }); }
 function calcU(u) { return (u.plazas || []).reduce((a, p) => { const c = calcP(p); return { aut: a.aut + c.aut, cont: a.cont + c.cont, pag: a.pag + c.pag }; }, { aut: 0, cont: 0, pag: 0 }); }
@@ -372,6 +427,31 @@ function AlertBox({ msg, color = T.red, bg }) {
 }
 
 // ─── FORMS ───────────────────────────────────────────────────────
+
+// ── FORM HELPERS ─────────────────────────────────────────────────
+function G2({ children }) { return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 } }, children); }
+function G3({ children }) { return React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 } }, children); }
+function MFooter({ onClose, onSave, label, disabled }) {
+  return (
+    <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
+      <button className="bg2" onClick={onClose}>Cancelar</button>
+      <button className="bp" onClick={onSave} disabled={disabled}>{label || "Guardar"}</button>
+    </div>
+  );
+}
+function ABox({ msg, color }) {
+  var c = color || "#E8344A";
+  return (
+    <div style={{ background: c + "14", border: "1px solid " + c + "40", borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", gap: 9, alignItems: "flex-start" }}>
+      <span style={{ color: c, fontSize: 14 }}>⚠</span>
+      <span style={{ fontSize: 12, color: c }}>{msg}</span>
+    </div>
+  );
+}
+function SecTitle({ children }) {
+  return <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 11, color: "#6A8AB5", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12 }}>{children}</div>;
+}
+
 function FObra({ data, onSave, onClose, ctx }) {
   const allP = [];
   data.unidades.forEach(u => u.plazas.forEach(p => allP.push({ value: (u.id) + "|" + (p.id), label: (u.nombre) + " → " + (p.nombre) })));
@@ -418,50 +498,169 @@ function FPlaza({ data, onSave, onClose }) {
 }
 
 function FParam({ obra, onSave, onClose }) {
-  const [f, setF] = useState({ clase: "", monto: "", fecha: "", supuestos: "" });
+  const fmtDec = n => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+  const [f, setF] = useState({ clase: "", fecha: "", supuestos: "", esTecho: false, partidas: [] });
   const s = (k, v) => setF(x => ({ ...x, [k]: v }));
-  const ok = f.clase && f.monto && f.fecha;
-  const diff = fmt.num(f.monto) - fmt.num(obra.presupuestoAutorizado);
+  const hayTecho = obra.presupuestoAutorizado > 0;
+
+  const addP = () => s("partidas", [...f.partidas, { id: uid(), nombre: "", tipo: "HC", conceptos: [] }]);
+  const upP = (pid, k, v) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, [k]: v } : p));
+  const delP = (pid) => s("partidas", f.partidas.filter(p => p.id !== pid));
+  const addC = (pid) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: [...p.conceptos, { id: uid(), descripcion: "", unidad: "m²", cantidad: "", precioUnitario: "" }] } : p));
+  const upC = (pid, cid, k, v) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: p.conceptos.map(c => c.id === cid ? { ...c, [k]: v } : c) } : p));
+  const delC = (pid, cid) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: p.conceptos.filter(c => c.id !== cid) } : p));
+
+  const montoHC = f.partidas.filter(p => p.tipo === "HC").reduce((s, p) => s + p.conceptos.reduce((s2, c) => s2 + fmt.num(c.cantidad) * fmt.num(c.precioUnitario), 0), 0);
+  const montoSC = f.partidas.filter(p => p.tipo === "SC").reduce((s, p) => s + p.conceptos.reduce((s2, c) => s2 + fmt.num(c.cantidad) * fmt.num(c.precioUnitario), 0), 0);
+  const montoTotal = montoHC + montoSC;
+  const diff = montoTotal - fmt.num(obra.presupuestoAutorizado);
+  const ok = f.clase && f.fecha && montoTotal > 0;
+
   return (
-    <Modal title="Nueva Estimación Paramétrica" onClose={onClose}>
-      <div style={{ background: T.blueDim, border: "1px solid " + T.blue + "30", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: T.textSecondary }}>
-        Techo autorizado: <Mn color={T.green} size={12}>{fmt.currency(obra.presupuestoAutorizado)}</Mn>
-      </div>
-      <Grid3>
-        <Field label="Clase AACE" req><Sel value={f.clase} onChange={v => s("clase", v)} options={[5, 4, 3, 2, 1].map(c => ({ value: c, label: "Clase " + (c) }))} /></Field>
-        <Field label="Monto (MXN)" req><Inp value={f.monto} onChange={v => s("monto", v)} type="number" placeholder="0" /></Field>
-        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
-      </Grid3>
-      <Field label="Supuestos y Notas">
-        <Txta value={f.supuestos} onChange={v => s("supuestos", v)} placeholder="Bases de estimación, alcances incluidos, exclusiones relevantes…" rows={4} />
-      </Field>
-      {f.monto && (
-        <div style={{ marginTop: 12, padding: "10px 14px", background: T.surfaceAlt, borderRadius: 8, fontSize: 12 }}>
-          Varianza vs techo: <Mn color={diff > 0 ? T.red : T.green} size={12}>{fmt.currency(diff)}</Mn>
+    <Modal title="Nueva Estimación Paramétrica" onClose={onClose} wide>
+      {hayTecho && (
+        <div style={{ background: "rgba(11,205,211,.08)", border: "1px solid rgba(11,205,211,.25)", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "#A0B8D8" }}>
+          Techo actual: <Mn color="#0BCDD3" size={12}>{fmt.currency(obra.presupuestoAutorizado)}</Mn>
         </div>
       )}
-      <ModalFooter onClose={onClose} onSave={() => ok && onSave({ ...f, clase: parseInt(f.clase), monto: fmt.num(f.monto), id: uid() })} label="Registrar Paramétrico" disabled={!ok} />
+      <G3>
+        <Field label="Clase AACE" req>
+          <Sel value={f.clase} onChange={v => s("clase", v)} options={[5,4,3,2,1].map(c => ({ value: c, label: "Clase " + c }))} />
+        </Field>
+        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
+        <Field label="Monto Total" hint="Calculado automáticamente">
+          <div style={{ padding: "10px 13px", background: "#080818", border: "1px solid " + (montoTotal > 0 ? "#0BCDD3" : "#1E1E50"), borderRadius: 7, fontFamily: "JetBrains Mono", fontSize: 14, color: montoTotal > 0 ? "#0BCDD3" : "#6A8AB5", fontWeight: 700 }}>
+            {montoTotal > 0 ? fmtDec(montoTotal) : "—"}
+          </div>
+        </Field>
+      </G3>
+      {montoTotal > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, padding: "12px 14px", background: "#080818", borderRadius: 8, border: "1px solid #1E1E50", marginBottom: 14 }}>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#2B6FD4", textTransform: "uppercase", marginBottom: 4 }}>Hard Cost (HC)</div><Mn color="#2B6FD4" size={13}>{fmtDec(montoHC)}</Mn></div>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#F0B429", textTransform: "uppercase", marginBottom: 4 }}>Soft Cost (SC)</div><Mn color="#F0B429" size={13}>{fmtDec(montoSC)}</Mn></div>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 4 }}>Varianza vs Techo</div><Mn color={diff > 0 ? "#E8344A" : "#00A86B"} size={13}>{fmtDec(diff)}</Mn></div>
+        </div>
+      )}
+      <Field label="Supuestos y Bases">
+        <Txta value={f.supuestos} onChange={v => s("supuestos", v)} placeholder="Bases de estimación, alcances incluidos, exclusiones relevantes…" rows={2} />
+      </Field>
+      <div className="divider" />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <SecTitle>Partidas y Conceptos</SecTitle>
+        <button className="bg2" onClick={addP} style={{ fontSize: 12, padding: "6px 12px" }}>+ Partida</button>
+      </div>
+      {f.partidas.length === 0 && (
+        <div style={{ textAlign: "center", padding: "20px", color: "#6A8AB5", fontSize: 13, border: "1px dashed #1E1E50", borderRadius: 8, marginBottom: 14 }}>
+          Agrega partidas. Cada partida se clasifica como Hard Cost (HC) o Soft Cost (SC).
+        </div>
+      )}
+      {f.partidas.map((p, pi) => {
+        const subtotalP = p.conceptos.reduce((s, c) => s + fmt.num(c.cantidad) * fmt.num(c.precioUnitario), 0);
+        return (
+          <div key={p.id} style={{ background: "#0D0C22", border: "1px solid " + (p.tipo === "HC" ? "rgba(43,111,212,.3)" : "rgba(240,180,41,.3)"), borderRadius: 9, marginBottom: 10, overflow: "hidden" }}>
+            <div style={{ padding: "11px 14px", display: "flex", gap: 10, alignItems: "center", borderBottom: "1px solid #1E1E50" }}>
+              <input className="inf" value={p.nombre} onChange={e => upP(p.id, "nombre", e.target.value)} placeholder={"Partida " + (pi + 1)} style={{ flex: 1, fontSize: 13, fontWeight: 600 }} />
+              <select className="inf" value={p.tipo} onChange={e => upP(p.id, "tipo", e.target.value)}
+                style={{ width: 140, fontSize: 12, padding: "6px 10px", fontWeight: 700, color: p.tipo === "HC" ? "#2B6FD4" : "#F0B429" }}>
+                <option value="HC">Hard Cost (HC)</option>
+                <option value="SC">Soft Cost (SC)</option>
+              </select>
+              {subtotalP > 0 && <span style={{ fontFamily: "JetBrains Mono", fontSize: 12, color: p.tipo === "HC" ? "#2B6FD4" : "#F0B429", whiteSpace: "nowrap" }}>{fmtDec(subtotalP)}</span>}
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "4px 8px", borderRadius: 5, background: p.noEjecutable ? "rgba(232,52,74,.1)" : "transparent", border: p.noEjecutable ? "1px solid rgba(232,52,74,.3)" : "1px solid transparent" }}>
+                <input type="checkbox" checked={p.noEjecutable || false} onChange={e => upP(p.id, "noEjecutable", e.target.checked)} style={{ accentColor: "#E8344A", cursor: "pointer" }} />
+                <span style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: p.noEjecutable ? "#E8344A" : "#6A8AB5", textTransform: "uppercase", whiteSpace: "nowrap" }}>No ejecutable</span>
+              </label>
+              <button className="ab d" onClick={() => delP(p.id)}>✕</button>
+            </div>
+            {p.conceptos.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "#080818" }}>
+                      {["Descripción", "Unidad", "Cantidad", "P.U.", "Total", ""].map(h => (
+                        <th key={h} style={{ padding: "8px 11px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500, borderBottom: "1px solid #1E1E50" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.conceptos.map(cn => {
+                      const tot = fmt.num(cn.cantidad) * fmt.num(cn.precioUnitario);
+                      return (
+                        <tr key={cn.id} style={{ borderBottom: "1px solid #1E1E50" }}>
+                          <td style={{ padding: "7px 11px" }}><input className="inf" value={cn.descripcion} onChange={e => upC(p.id, cn.id, "descripcion", e.target.value)} placeholder="Descripción" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
+                          <td style={{ padding: "7px 9px", width: 76 }}>
+                            <select className="inf" value={cn.unidad} onChange={e => upC(p.id, cn.id, "unidad", e.target.value)} style={{ fontSize: 12, padding: "5px 7px" }}>
+                              {["m²","m³","ml","pza","kg","ton","lt","hr","gl","lote","%","global"].map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                          </td>
+                          <td style={{ padding: "7px 9px", width: 100 }}><input className="inf" value={cn.cantidad} onChange={e => upC(p.id, cn.id, "cantidad", e.target.value)} type="number" placeholder="0" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
+                          <td style={{ padding: "7px 9px", width: 130 }}><input className="inf" value={cn.precioUnitario} onChange={e => upC(p.id, cn.id, "precioUnitario", e.target.value)} type="number" placeholder="0.00" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
+                          <td style={{ padding: "7px 11px", fontFamily: "JetBrains Mono", fontSize: 12, color: tot > 0 ? (p.tipo === "HC" ? "#2B6FD4" : "#F0B429") : "#6A8AB5", fontWeight: tot > 0 ? 600 : 400 }}>{tot > 0 ? fmtDec(tot) : "—"}</td>
+                          <td style={{ padding: "7px 9px" }}><button className="ab d" onClick={() => delC(p.id, cn.id)}>✕</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ padding: "9px 14px" }}><button className="ab" onClick={() => addC(p.id)}>+ Concepto</button></div>
+          </div>
+        );
+      })}
+
+      <div className="divider" />
+      <div style={{ background: f.esTecho ? "rgba(11,205,211,.08)" : "rgba(30,30,80,.4)", border: "1px solid " + (f.esTecho ? "rgba(11,205,211,.3)" : "#1E1E50"), borderRadius: 9, padding: "14px 16px", marginBottom: 14 }}>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+          <input type="checkbox" checked={f.esTecho} onChange={e => s("esTecho", e.target.checked)}
+            style={{ width: 16, height: 16, marginTop: 2, accentColor: "#0BCDD3", cursor: "pointer", flexShrink: 0 }} />
+          <div>
+            <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, color: f.esTecho ? "#0BCDD3" : "#E8EDF8", marginBottom: 3 }}>
+              {hayTecho ? "Actualizar el Techo Presupuestal" : "Establecer como Techo Presupuestal"}
+            </div>
+            <div style={{ fontSize: 12, color: "#7A92B5", lineHeight: 1.5 }}>
+              {hayTecho ? "Techo actual " + fmt.currency(obra.presupuestoAutorizado) + " → " + fmtDec(montoTotal) + ". El anterior quedará en historial." : "Este monto se establecerá como el techo máximo de la obra."}
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <MFooter onClose={onClose} onSave={() => ok && onSave({ ...f, clase: parseInt(f.clase), monto: montoTotal, montoHC, montoSC, id: uid() })} label="Registrar Paramétrico" disabled={!ok} />
     </Modal>
   );
 }
 
 function FContrato({ obra, onSave, onClose, edit }) {
   const [f, setF] = useState({
-    numero: edit?.numero || "", contratista: edit?.contratista || "", fechaFirma: edit?.fechaFirma || "",
-    montoOriginal: edit?.montoOriginal || "", anticipoPct: edit?.anticipoPct || 20, retencionPct: edit?.retencionPct || 5,
-    clasificacion: edit?.clasificacion || "normal", estado: edit?.estado || "activo",
+    numero: edit?.numero || "",
+    contratista: edit?.contratista || "",
+    fechaFirma: edit?.fechaFirma || "",
+    anticipoPct: edit?.anticipoPct || 20,
+    retencionPct: edit?.retencionPct || 5,
+    clasificacion: edit?.clasificacion || "normal",
+    estado: edit?.estado || "activo",
+    tipoContrato: edit?.tipoContrato || "",
     partidas: edit?.partidas || [],
   });
   const s = (k, v) => setF(x => ({ ...x, [k]: v }));
-  const m = fmt.num(f.montoOriginal);
-  const ant = m * (fmt.num(f.anticipoPct) / 100);
-  const otros = (obra.contratos || []).filter(c => !edit || c.id !== edit.id).reduce((s, c) => s + calcC(c).ma, 0);
-  const proy = otros + m;
-  const sob = proy > fmt.num(obra.presupuestoAutorizado);
-  const ok = f.numero && f.contratista && f.fechaFirma && f.montoOriginal;
-  const totP = f.partidas.reduce((s, p) => s + p.conceptos.reduce((s2, c) => s2 + fmt.num(c.cantContratada) * fmt.num(c.precioUnitario), 0), 0);
 
-  const addP = () => s("partidas", [...f.partidas, { id: uid(), nombre: "", conceptos: [] }]);
+  // ── Monto calculado automáticamente desde partidas ────────────
+  const montoCalculado = f.partidas.reduce((s, p) =>
+    s + p.conceptos.reduce((s2, c) => s2 + fmt.num(c.cantContratada) * fmt.num(c.precioUnitario), 0), 0);
+  const fmtDec = n => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+
+  const ant = montoCalculado * (fmt.num(f.anticipoPct) / 100);
+  const otros = (obra.contratos || []).filter(c => !edit || c.id !== edit.id).reduce((s, c) => s + calcC(c).ma, 0);
+  const proy = otros + montoCalculado;
+  const sob = proy > fmt.num(obra.presupuestoAutorizado);
+  const ok = f.numero && f.contratista && f.fechaFirma && f.tipoContrato && montoCalculado > 0;
+
+  // Get techo parametric partidas for linking
+  var techoParamPartidas = [];
+  var tp = (obra.parametricos || []).find(p => p.esTecho);
+  if (tp) techoParamPartidas = tp.partidas || [];
+
+  const addP = () => s("partidas", [...f.partidas, { id: uid(), nombre: "", conceptos: [], parametricaRef: "" }]);
   const upP = (pid, k, v) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, [k]: v } : p));
   const delP = (pid) => s("partidas", f.partidas.filter(p => p.id !== pid));
   const addC = (pid) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: [...p.conceptos, { id: uid(), descripcion: "", unidad: "m²", cantContratada: "", precioUnitario: "", cantEjecutada: 0 }] } : p));
@@ -470,443 +669,156 @@ function FContrato({ obra, onSave, onClose, edit }) {
 
   function save() {
     if (!ok) return;
-    onSave({ ...f, montoOriginal: m, anticipoPct: fmt.num(f.anticipoPct), retencionPct: fmt.num(f.retencionPct), id: edit?.id || uid(), convenios: edit?.convenios || [], estimaciones: edit?.estimaciones || [] });
+    onSave({
+      ...f,
+      montoOriginal: montoCalculado,
+      anticipoPct: fmt.num(f.anticipoPct),
+      retencionPct: fmt.num(f.retencionPct),
+      id: edit?.id || uid(),
+      convenios: edit?.convenios || [],
+      estimaciones: edit?.estimaciones || [],
+      deductivas: edit?.deductivas || []
+    });
   }
 
   return (
     <Modal title={edit ? "Editar Contrato" : "Nuevo Contrato"} onClose={onClose} wide>
-      {sob && <AlertBox msg={"Este contrato genera sobrecosto de " + (fmt.currency(proy - fmt.num(obra.presupuestoAutorizado))) + " sobre el techo autorizado"} />}
-      <SectionTitle>Datos Generales</SectionTitle>
-      <Grid2>
+      {sob && <ABox msg={"Este contrato genera sobrecosto de " + fmt.currency(proy - fmt.num(obra.presupuestoAutorizado)) + " sobre el techo"} />}
+
+      <SecTitle>Datos Generales</SecTitle>
+      <G2>
         <Field label="Número de Contrato" req><Inp value={f.numero} onChange={v => s("numero", v)} placeholder="CT-2024-001" /></Field>
         <Field label="Contratista" req><Inp value={f.contratista} onChange={v => s("contratista", v)} placeholder="Razón social del contratista" /></Field>
-      </Grid2>
-      <Grid3>
+      </G2>
+      <G3>
         <Field label="Fecha de Firma" req><Inp value={f.fechaFirma} onChange={v => s("fechaFirma", v)} type="date" /></Field>
         <Field label="Clasificación" req><Sel value={f.clasificacion} onChange={v => s("clasificacion", v)} options={CLASIFS_CT.map(c => ({ value: c.value, label: c.label }))} /></Field>
         <Field label="Estado"><Sel value={f.estado} onChange={v => s("estado", v)} options={[{ value: "activo", label: "Activo" }, { value: "cerrado", label: "Cerrado" }, { value: "en_convenio", label: "En Convenio" }]} /></Field>
-      </Grid3>
+        <Field label="Tipo de Costo" req hint="Hard Cost = construcción directa · Soft Cost = honorarios, permisos, gestión"><Sel value={f.tipoContrato} onChange={v => s("tipoContrato", v)} options={TIPOS_COSTO.map(t => ({ value: t.value, label: t.label }))} /></Field>
+      </G3>
+
       <div className="divider" />
-      <SectionTitle>Condiciones Financieras</SectionTitle>
-      <Grid3>
-        <Field label="Monto Original (MXN)" req><Inp value={f.montoOriginal} onChange={v => s("montoOriginal", v)} type="number" placeholder="0" /></Field>
-        <Field label="Anticipo (%)" hint={m ? "= " + (fmt.currency(ant)) : ""}><Inp value={f.anticipoPct} onChange={v => s("anticipoPct", v)} type="number" min="0" placeholder="20" /></Field>
-        <Field label="Retención Garantía (%)"><Inp value={f.retencionPct} onChange={v => s("retencionPct", v)} type="number" min="0" placeholder="5" /></Field>
-      </Grid3>
-      {m > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, padding: "13px", background: T.bg, borderRadius: 8, border: "1px solid " + T.border, marginBottom: 14 }}>
-          {[{ l: "Monto contrato", v: fmt.currency(m), c: T.textPrimary }, { l: "Anticipo a erogar", v: fmt.currency(ant), c: T.green }, { l: "Varianza vs techo", v: fmt.currency(fmt.num(obra.presupuestoAutorizado) - proy), c: sob ? T.red : T.green }].map((k, i) => (
-            <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.c} size={13}>{k.v}</Mn></div>
-          ))}
-        </div>
-      )}
-      <div className="divider" />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <SectionTitle>Partidas y Conceptos</SectionTitle>
-        <button className="bg2" onClick={addP} style={{ fontSize: 12, padding: "6px 12px" }}>+ Partida</button>
-      </div>
-      {f.partidas.length === 0 && (
-        <div style={{ textAlign: "center", padding: "20px", color: "#6A7DA0", fontSize: 13, border: "1px dashed " + T.border, borderRadius: 8, marginBottom: 14 }}>
-          Sin partidas. Agrega una partida para registrar conceptos.
-        </div>
-      )}
-      {f.partidas.map((p, pi) => (
-        <div key={p.id} style={{ background: T.surfaceAlt, border: "1px solid " + T.border, borderRadius: 9, marginBottom: 10, overflow: "hidden" }}>
-          <div style={{ padding: "11px 14px", display: "flex", gap: 10, alignItems: "center", borderBottom: "1px solid " + T.border }}>
-            <input className="inf" value={p.nombre} onChange={e => upP(p.id, "nombre", e.target.value)} placeholder={"Partida " + (pi + 1)} style={{ flex: 1, fontSize: 13, fontWeight: 600 }} />
-            <button className="ab d" onClick={() => delP(p.id)}>✕</button>
-          </div>
-          {p.conceptos.length > 0 && (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: T.bg }}>
-                    {["Descripción", "Unidad", "Cantidad", "P.U.", "Total", ""].map(h => (
-                      <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500, borderBottom: "1px solid " + T.border }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.conceptos.map(cn => {
-                    const tot = fmt.num(cn.cantContratada) * fmt.num(cn.precioUnitario);
-                    return (
-                      <tr key={cn.id} style={{ borderBottom: "1px solid " + T.border }}>
-                        <td style={{ padding: "7px 12px" }}><input className="inf" value={cn.descripcion} onChange={e => upC(p.id, cn.id, "descripcion", e.target.value)} placeholder="Descripción" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
-                        <td style={{ padding: "7px 10px", width: 80 }}>
-                          <select className="inf" value={cn.unidad} onChange={e => upC(p.id, cn.id, "unidad", e.target.value)} style={{ fontSize: 12, padding: "5px 7px" }}>
-                            {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
-                          </select>
-                        </td>
-                        <td style={{ padding: "7px 10px", width: 100 }}><input className="inf" value={cn.cantContratada} onChange={e => upC(p.id, cn.id, "cantContratada", e.target.value)} type="number" placeholder="0" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
-                        <td style={{ padding: "7px 10px", width: 120 }}><input className="inf" value={cn.precioUnitario} onChange={e => upC(p.id, cn.id, "precioUnitario", e.target.value)} type="number" placeholder="0" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
-                        <td style={{ padding: "7px 12px", whiteSpace: "nowrap" }}><Mn color={tot > 0 ? T.green : T.textMuted} size={12}>{tot > 0 ? fmt.currency(tot) : "—"}</Mn></td>
-                        <td style={{ padding: "7px 10px" }}><button className="ab d" onClick={() => delC(p.id, cn.id)}>✕</button></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <button className="ab" onClick={() => addC(p.id)}>+ Concepto</button>
-            {p.conceptos.length > 0 && <Mn color={T.textSecondary} size={11}>Subtotal: {fmt.currency(p.conceptos.reduce((s, c) => s + fmt.num(c.cantContratada) * fmt.num(c.precioUnitario), 0))}</Mn>}
-          </div>
-        </div>
-      ))}
-      {totP > 0 && <div style={{ textAlign: "right", padding: "10px 0", borderTop: "1px solid " + T.border }}><Mn color={T.green} size={12}>Total partidas: {fmt.currency(totP)}</Mn></div>}
-      <ModalFooter onClose={onClose} onSave={save} label={edit ? "Actualizar Contrato" : "Registrar Contrato"} disabled={!ok} />
-    </Modal>
-  );
-}
-
-
-// ── DETALLE CONVENIO MODAL ──────────────────────────────────────
-function DetalleConvenio({convenio,contrato,onClose}){
-  const clasifColors={modificacion:T.blue,omision:T.yellow,situacion_fisica:T.orange,mala_ejecucion:T.red};
-  const clasifLabels={modificacion:"Modificación de Proyecto",omision:"Omisión de Proyecto",situacion_fisica:"Situación Física de Obra",mala_ejecucion:"Mala Ejecución"};
-  return(
-    <Modal title={"Convenio #" + (convenio.numero) + " — Detalle"} onClose={onClose} wide>
-      {/* Header clasificación */}
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,padding:"16px",background:"#080818",borderRadius:10,border:"1px solid #1E1E50"}}>
-        <div>
-          <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:6}}>Contratista</div>
-          <div style={{fontFamily:"Work Sans",fontWeight:700,fontSize:15,marginBottom:4}}>{contrato.contratista}</div>
-          <div style={{fontFamily:"JetBrains Mono",fontSize:11,color:"#5A6A90"}}>{contrato.numero}</div>
-        </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:6}}>Monto Delta</div>
-          <div style={{fontFamily:"Work Sans",fontWeight:800,fontSize:22,color:fmt.num(convenio.montoDelta)>=0?"#E8344A":"#00A86B"}}>{fmt.num(convenio.montoDelta)>=0?"+":""}{fmt.currency(convenio.montoDelta)}</div>
-          <div style={{fontFamily:"JetBrains Mono",fontSize:11,color:"#5A6A90",marginTop:3}}>{fmt.date(convenio.fecha)}</div>
-        </div>
-      </div>
-
-      {/* Clasificación */}
-      <div style={{marginBottom:20}}>
-        <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Clasificación</div>
-        <div style={{display:"inline-flex",alignItems:"center",gap:8,background:(clasifColors[convenio.clasificacion]) + "18",border:"1px solid " + (clasifColors[convenio.clasificacion]) + "40",borderRadius:8,padding:"8px 14px"}}>
-          <span style={{width:8,height:8,borderRadius:"50%",background:clasifColors[convenio.clasificacion],display:"inline-block",boxShadow:"0 0 6px " + clasifColors[convenio.clasificacion]}}/>
-          <span style={{fontFamily:"Work Sans",fontWeight:600,fontSize:14,color:clasifColors[convenio.clasificacion]}}>{clasifLabels[convenio.clasificacion]||convenio.clasificacion}</span>
-        </div>
-      </div>
-
-      {/* Causa resumen */}
-      <div style={{marginBottom:20}}>
-        <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Causa (Resumen)</div>
-        <div style={{background:"#080818",borderRadius:8,padding:"12px 16px",border:"1px solid #1E1E50",fontSize:13,color:"#8A9DC0",lineHeight:1.7}}>{convenio.justificacion||"—"}</div>
-      </div>
-
-      {/* Descripción técnica detallada */}
-      {convenio.descripcion&&(
-        <div style={{marginBottom:20}}>
-          <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Descripción Técnica Detallada</div>
-          <div style={{background:"#080818",borderRadius:8,padding:"14px 16px",border:"1px solid #1E1E50",fontSize:13,color:"#E8EDF8",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{convenio.descripcion}</div>
-        </div>
-      )}
-
-      {/* Adjunto */}
-      {convenio.adjuntoUrl&&(
-        <div style={{marginBottom:20}}>
-          <div style={{fontFamily:"JetBrains Mono",fontSize:9,color:"#5A6A90",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:8}}>Documento de Soporte</div>
-          <div style={{background:"rgba(11,205,211,.06)",border:"1px solid rgba(11,205,211,.2)",borderRadius:10,padding:"14px 18px",display:"flex",alignItems:"center",gap:14}}>
-            <div style={{width:40,height:40,background:"rgba(11,205,211,.12)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>📎</div>
-            <div style={{flex:1}}>
-              <div style={{fontFamily:"Work Sans",fontWeight:600,fontSize:14,marginBottom:3}}>{convenio.adjuntoNombre||"Documento adjunto"}</div>
-              <div style={{fontFamily:"JetBrains Mono",fontSize:10,color:"#5A6A90",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:400}}>{convenio.adjuntoUrl}</div>
-            </div>
-            <a href={convenio.adjuntoUrl} target="_blank" rel="noopener noreferrer"
-              style={{background:"linear-gradient(135deg,#0BCDD3,#089AA0)",color:"#fff",fontFamily:"Work Sans",fontWeight:700,fontSize:13,padding:"10px 20px",borderRadius:7,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:7,flexShrink:0}}>
-              Abrir archivo →
-            </a>
-          </div>
-        </div>
-      )}
-      {!convenio.adjuntoUrl&&(
-        <div style={{marginBottom:20,padding:"12px 16px",background:"#080818",borderRadius:8,border:"1px dashed #1E1E50",display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:16,color:"#5A6A90"}}>📎</span>
-          <span style={{fontSize:12,color:"#5A6A90"}}>Sin documentos de soporte adjuntos en este convenio.</span>
-        </div>
-      )}
-
-      <div style={{display:"flex",justifyContent:"flex-end"}}>
-        <button className="bg2" onClick={onClose}>Cerrar</button>
-      </div>
-    </Modal>
-  );
-}
-
-
-// ── FORM: Deductiva ─────────────────────────────────────────────
-function FDeductiva({ contrato, obra, onSave, onClose }) {
-  const numeroSig = (contrato.deductivas?.length || 0) + 1;
-  const [f, setF] = useState({ numero: numeroSig, fecha: new Date().toISOString().slice(0,10), descripcion: "", estado: "aprobada" });
-  const [cantidades, setCantidades] = useState({});
-  const [errores, setErrores] = useState({});
-  const sf = (k, v) => setF(x => ({ ...x, [k]: v }));
-
-  const allConceptos = [];
-  (contrato.partidas || []).forEach(p => p.conceptos.forEach(c => allConceptos.push({ ...c, partidaNombre: p.nombre })));
-
-  function setCantidad(cid, val) {
-    const concepto = allConceptos.find(c => c.id === cid);
-    const disponible = cantDisponibleDeducir(contrato, concepto);
-    const num = fmt.num(val);
-    const newErr = { ...errores };
-    if (num > disponible) {
-      newErr[cid] = "Máximo deducible: " + (disponible.toLocaleString()) + " " + (concepto.unidad) + ". (" + (fmt.num(concepto.cantContratada).toLocaleString()) + " contratadas − " + (cantDeducidaConcepto(contrato, cid).toLocaleString()) + " ya deducidas)";
-    } else {
-      delete newErr[cid];
-    }
-    setErrores(newErr);
-    setCantidades(prev => ({ ...prev, [cid]: val }));
-  }
-
-  const hayErrores = Object.keys(errores).length > 0;
-  const conceptosAfectados = allConceptos.filter(c => fmt.num(cantidades[c.id]) > 0);
-  const montoTotal = conceptosAfectados.reduce((s, c) => {
-    const qty = Math.min(fmt.num(cantidades[c.id]), cantDisponibleDeducir(contrato, c));
-    return s - (qty * fmt.num(c.precioUnitario));
-  }, 0);
-  const ok = f.fecha && f.descripcion && conceptosAfectados.length > 0 && !hayErrores;
-
-  function save() {
-    if (!ok) return;
-    const conceptosDed = conceptosAfectados.map(c => ({
-      conceptoId: c.id,
-      descripcion: c.descripcion,
-      unidad: c.unidad,
-      cantidadDeducida: fmt.num(cantidades[c.id]),
-      precioUnitario: fmt.num(c.precioUnitario),
-      montoDeductiva: -(fmt.num(cantidades[c.id]) * fmt.num(c.precioUnitario))
-    }));
-    onSave({ ...f, conceptos: conceptosDed, montoTotal, id: uid() });
-  }
-
-  return (
-    <Modal title={"Deductiva #" + (numeroSig) + " — " + (contrato.contratista)} onClose={onClose} wide>
-      {/* Alerta info */}
-      <div style={{ background: "rgba(240,180,41,.08)", border: "1px solid rgba(240,180,41,.3)", borderRadius: 8, padding: "10px 16px", marginBottom: 18, display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <span style={{ color: "#F0B429", fontSize: 15, marginTop: 1 }}>⚠</span>
-        <div style={{ fontSize: 12, color: "#8A9DC0", lineHeight: 1.6 }}>
-          Una deductiva reduce el monto y alcance del contrato. <strong style={{ color: "#E8EDF8" }}>No se puede deducir más de la cantidad contratada disponible.</strong> El sistema bloqueará cantidades fuera de rango.
-        </div>
-      </div>
-
+      <SecTitle>Condiciones Financieras</SecTitle>
       <G3>
-        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => sf("fecha", v)} type="date" /></Field>
-        <Field label="Estado">
-          <Sel value={f.estado} onChange={v => sf("estado", v)} options={[{ value: "aprobada", label: "Aprobada" }, { value: "pendiente", label: "Pendiente" }]} />
+        <Field label="Anticipo (%)" hint={"= " + fmtDec(ant)}>
+          <Inp value={f.anticipoPct} onChange={v => s("anticipoPct", v)} type="number" min="0" placeholder="20" />
         </Field>
-        <Field label="Monto Total Deductiva">
-          <div style={{ padding: "10px 13px", background: "#080818", border: "1px solid #1E1E50", borderRadius: 7, fontFamily: "JetBrains Mono", fontSize: 14, color: montoTotal < 0 ? "#00A86B" : "#5A6A90", fontWeight: 700 }}>
-            {montoTotal < 0 ? fmt.currency(montoTotal) : "—"}
+        <Field label="Retención Garantía (%)">
+          <Inp value={f.retencionPct} onChange={v => s("retencionPct", v)} type="number" min="0" placeholder="5" />
+        </Field>
+        <Field label="Monto del Contrato" hint="Calculado automáticamente">
+          <div style={{ padding: "10px 13px", background: "#080818", border: "1px solid " + (montoCalculado > 0 ? "#0BCDD3" : "#1E1E50"), borderRadius: 7, fontFamily: "JetBrains Mono", fontSize: 15, color: montoCalculado > 0 ? "#0BCDD3" : "#5A6A90", fontWeight: 700, letterSpacing: "-0.01em" }}>
+            {montoCalculado > 0 ? fmtDec(montoCalculado) : "—"}
           </div>
         </Field>
       </G3>
 
-      <Field label="Descripción del Motivo" req hint="¿Por qué se genera esta deductiva? Cambio de proyecto, reducción de alcance, trabajos no ejecutados, etc.">
-        <Txta value={f.descripcion} onChange={v => sf("descripcion", v)} placeholder="Describe el motivo de la deductiva, los trabajos que se reducen o eliminan, y las implicaciones en el proyecto…" rows={4} />
-      </Field>
-
-      <div className="divider" />
-      <SecTitle>Conceptos a Deducir</SecTitle>
-      <div style={{ fontSize: 12, color: "#7A92B5", marginBottom: 14 }}>Ingresa solo los conceptos y volúmenes que aplican a esta deductiva. Deja en blanco los que no aplican.</div>
-
-      {allConceptos.length === 0 ? (
-        <div style={{ color: "#7A92B5", fontSize: 13, padding: "16px 0" }}>El contrato no tiene conceptos registrados.</div>
-      ) : (
-        <div style={{ background: "#080818", border: "1px solid #1E1E50", borderRadius: 9, overflow: "hidden", marginBottom: 16 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: "#0D0C22" }}>
-                {["Concepto", "Partida", "Contratado", "Ya Deducido", "Disponible", "A Deducir", "Monto Deductiva"].map(h => (
-                  <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {allConceptos.map(c => {
-                const yaDeducido = cantDeducidaConcepto(contrato, c.id);
-                const disponible = cantDisponibleDeducir(contrato, c);
-                const qty = fmt.num(cantidades[c.id] || 0);
-                const montoConc = qty * fmt.num(c.precioUnitario);
-                const error = errores[c.id];
-                return (
-                  <React.Fragment key={c.id}>
-                    <tr style={{ borderTop: "1px solid #1E1E50", background: error ? "rgba(232,52,74,.05)" : qty > 0 ? "rgba(0,168,107,.05)" : "transparent" }}>
-                      <td style={{ padding: "10px 12px", fontWeight: qty > 0 ? 600 : 400 }}>{c.descripcion}</td>
-                      <td style={{ padding: "10px 12px", color: "#7A92B5", fontSize: 11 }}>{c.partidaNombre}</td>
-                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11 }}>{fmt.num(c.cantContratada).toLocaleString()} {c.unidad}</td>
-                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: yaDeducido > 0 ? "#F0B429" : "#5A6A90" }}>{yaDeducido > 0 ? yaDeducido.toLocaleString() : "—"}</td>
-                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: disponible <= 0 ? "#E8344A" : "#00A86B", fontWeight: 600 }}>{disponible <= 0 ? "AGOTADO" : (disponible.toLocaleString()) + " " + (c.unidad)}</td>
-                      <td style={{ padding: "10px 10px", width: 110 }}>
-                        {disponible <= 0 ? (
-                          <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#E8344A", padding: "5px 8px" }}>—</div>
-                        ) : (
-                          <input className="inf" value={cantidades[c.id] || ""} onChange={e => setCantidad(c.id, e.target.value)}
-                            type="number" min="0" max={disponible} placeholder="0"
-                            style={{ fontSize: 12, padding: "5px 8px", borderColor: error ? "#E8344A" : qty > 0 ? "#00A86B" : "#1E1E50" }} />
-                        )}
-                      </td>
-                      <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 12, color: qty > 0 ? "#00A86B" : "#5A6A90" }}>
-                        {qty > 0 ? "- " + (fmt.currency(montoConc)) : "—"}
-                      </td>
-                    </tr>
-                    {error && (
-                      <tr style={{ background: "rgba(232,52,74,.08)" }}>
-                        <td colSpan={7} style={{ padding: "6px 12px 8px", fontSize: 11, color: "#E8344A", fontWeight: 500 }}>
-                          🚫 {error}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-            {conceptosAfectados.length > 0 && (
-              <tfoot>
-                <tr style={{ borderTop: "2px solid #1E1E50", background: "#0D0C22" }}>
-                  <td colSpan={5} style={{ padding: "11px 12px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 12 }}>TOTAL DEDUCTIVA</td>
-                  <td style={{ padding: "11px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: "#8A9DC0" }}>{conceptosAfectados.length} concepto(s)</td>
-                  <td style={{ padding: "11px 12px", fontFamily: "Work Sans", fontWeight: 800, fontSize: 14, color: "#00A86B" }}>{fmt.currency(montoTotal)}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      )}
-
-      {hayErrores && (
-        <div style={{ background: "rgba(232,52,74,.1)", border: "1px solid rgba(232,52,74,.4)", borderRadius: 8, padding: "10px 16px", marginBottom: 14, display: "flex", gap: 10, alignItems: "center" }}>
-          <span style={{ color: "#E8344A", fontSize: 18 }}>🚫</span>
-          <div style={{ fontSize: 12, color: "#E8344A" }}>
-            <strong>Acción bloqueada.</strong> Corrige las cantidades marcadas antes de continuar. No se puede deducir más de lo contratado disponible.
+      {montoCalculado > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, padding: "13px", background: "#080818", borderRadius: 8, border: "1px solid #1E1E50", marginBottom: 14 }}>
+          <div>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", marginBottom: 4, textTransform: "uppercase" }}>Monto Contrato</div>
+            <Mn color="#0BCDD3" size={13}>{fmtDec(montoCalculado)}</Mn>
+          </div>
+          <div>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", marginBottom: 4, textTransform: "uppercase" }}>Anticipo a Erogar</div>
+            <Mn color="#00A86B" size={13}>{fmtDec(ant)}</Mn>
+          </div>
+          <div>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", marginBottom: 4, textTransform: "uppercase" }}>Varianza vs Techo</div>
+            <Mn color={sob ? "#E8344A" : "#00A86B"} size={13}>{fmtDec(fmt.num(obra.presupuestoAutorizado) - proy)}</Mn>
           </div>
         </div>
       )}
 
-      <MFooter onClose={onClose} onSave={save} label={"Registrar Deductiva #" + (numeroSig)} disabled={!ok} />
-    </Modal>
-  );
-}
-
-// ── DETALLE DEDUCTIVA MODAL ──────────────────────────────────────
-function DetalleDeductiva({ deductiva, contrato, onClose }) {
-  return (
-    <Modal title={"Deductiva #" + (deductiva.numero) + " — Detalle"} onClose={onClose} wide>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, marginBottom: 20, padding: "16px", background: "#080818", borderRadius: 10, border: "1px solid #1E1E50" }}>
-        <div>
-          <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 5 }}>Contrato</div>
-          <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{contrato.contratista}</div>
-          <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#7A92B5" }}>{contrato.numero} · {fmt.date(deductiva.fecha)}</div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 5 }}>Monto Deductiva</div>
-          <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 24, color: "#00A86B" }}>{fmt.currency(deductiva.montoTotal)}</div>
-          <Tag label={deductiva.estado} color={deductiva.estado === "aprobada" ? "#00A86B" : "#F0B429"} />
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 8 }}>Motivo</div>
-        <div style={{ background: "#080818", borderRadius: 8, padding: "12px 16px", border: "1px solid #1E1E50", fontSize: 13, color: "#E8EDF8", lineHeight: 1.75, whiteSpace: "pre-wrap" }}>{deductiva.descripcion}</div>
-      </div>
-
-      <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", textTransform: "uppercase", marginBottom: 10 }}>Conceptos Deducidos</div>
-      <div style={{ background: "#080818", border: "1px solid #1E1E50", borderRadius: 9, overflow: "hidden", marginBottom: 18 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead>
-            <tr style={{ background: "#0D0C22" }}>
-              {["Concepto", "Unidad", "Cantidad Deducida", "P.U.", "Monto"].map(h => (
-                <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#7A92B5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(deductiva.conceptos || []).map((c, i) => (
-              <tr key={i} style={{ borderTop: "1px solid #1E1E50" }}>
-                <td style={{ padding: "11px 14px", fontWeight: 500 }}>{c.descripcion}</td>
-                <td style={{ padding: "11px 14px", fontFamily: "JetBrains Mono", fontSize: 11, color: "#7A92B5" }}>{c.unidad}</td>
-                <td style={{ padding: "11px 14px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#F0B429" }}>{fmt.num(c.cantidadDeducida).toLocaleString()}</td>
-                <td style={{ padding: "11px 14px", fontFamily: "JetBrains Mono", fontSize: 12 }}>{fmt.currency(c.precioUnitario)}</td>
-                <td style={{ padding: "11px 14px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, color: "#00A86B" }}>{fmt.currency(c.montoDeductiva)}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{ borderTop: "2px solid #1E1E50", background: "#0D0C22" }}>
-              <td colSpan={4} style={{ padding: "11px 14px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 12 }}>TOTAL</td>
-              <td style={{ padding: "11px 14px", fontFamily: "Work Sans", fontWeight: 800, fontSize: 15, color: "#00A86B" }}>{fmt.currency(deductiva.montoTotal)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button className="bg2" onClick={onClose}>Cerrar</button>
-      </div>
-    </Modal>
-  );
-}
-
-function FConvenio({ contrato, obra, onSave, onClose }) {
-  const [f, setF] = useState({
-    numero: (contrato.convenios?.length || 0) + 1,
-    fecha: "", justificacion: "", clasificacion: "", montoDelta: "",
-    descripcion: "", adjuntoNombre: "", adjuntoUrl: ""
-  });
-  const s = (k, v) => setF(x => ({ ...x, [k]: v }));
-  const monto = fmt.num(f.montoDelta);
-  const ccActual = calcC(contrato);
-  const proyC = ccActual.ma + monto;
-  const otrosC = (obra.contratos || []).filter(c => c.id !== contrato.id).reduce((s, c) => s + calcC(c).ma, 0);
-  const proyO = otrosC + proyC;
-  const sob = proyO > fmt.num(obra.presupuestoAutorizado);
-  const ok = f.fecha && f.justificacion && f.clasificacion && f.montoDelta;
-  return (
-    <Modal title={"Convenio #" + (f.numero) + " — " + (contrato.contratista)} onClose={onClose} wide>
-      {sob && <ABox msg={"Sobrecosto de " + (fmt.currency(proyO - fmt.num(obra.presupuestoAutorizado))) + " sobre el techo"} />}
-      <G2>
-        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
-        <Field label="Clasificación" req>
-          <Sel value={f.clasificacion} onChange={v => s("clasificacion", v)} options={CLASIFS.map(c => ({ value: c.value, label: c.label }))} />
-        </Field>
-      </G2>
-      <Field label="Monto Delta (MXN)" req hint="Positivo = incremento · Negativo = deducción">
-        <Inp value={f.montoDelta} onChange={v => s("montoDelta", v)} type="number" placeholder="0" />
-      </Field>
-      <div style={{ marginBottom: 14 }} />
-      <Field label="Causa (resumen)" req hint="Resumen breve — aparece en reportes y dashboard">
-        <Txta value={f.justificacion} onChange={v => s("justificacion", v)} placeholder="Causa que origina el convenio…" rows={2} />
-      </Field>
-      <div style={{ marginBottom: 14 }} />
-      <Field label="Descripción Técnica Detallada" hint="Detalle completo: condición física encontrada, alcance del cambio, impacto en obra, referencias de planos">
-        <Txta value={f.descripcion} onChange={v => s("descripcion", v)} placeholder="Describe con detalle la condición física encontrada, trabajos adicionales requeridos, alcance del cambio de proyecto, referencias a planos o especificaciones…" rows={5} />
-      </Field>
       <div className="divider" />
-      <SecTitle>Documento de Soporte</SecTitle>
-      <G2>
-        <Field label="Nombre del Documento" hint="Ej. Croquis cimentación norte, Plano AS-BUILT-03">
-          <Inp value={f.adjuntoNombre} onChange={v => s("adjuntoNombre", v)} placeholder="Nombre descriptivo del archivo" />
-        </Field>
-        <Field label="Link del Archivo" hint="Google Drive, OneDrive, Dropbox — URL compartida">
-          <Inp value={f.adjuntoUrl} onChange={v => s("adjuntoUrl", v)} placeholder="https://drive.google.com/..." />
-        </Field>
-      </G2>
-      {f.adjuntoUrl && (
-        <div style={{ background: "rgba(11,205,211,.06)", border: "1px solid rgba(11,205,211,.2)", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-          <span style={{ fontSize: 18 }}>📎</span>
-          <span style={{ fontSize: 13, color: "#8A9DC0", flex: 1 }}>{f.adjuntoNombre || "Documento adjunto"}</span>
-          <a href={f.adjuntoUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#0BCDD3", textDecoration: "none", padding: "4px 10px", border: "1px solid rgba(11,205,211,.3)", borderRadius: 5 }}>Verificar →</a>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <SecTitle>Partidas y Conceptos</SecTitle>
+        <button className="bg2" onClick={addP} style={{ fontSize: 12, padding: "6px 12px" }}>+ Partida</button>
+      </div>
+      {f.partidas.length === 0 && (
+        <div style={{ textAlign: "center", padding: "20px", color: "#6A8AB5", fontSize: 13, border: "1px dashed #1E1E50", borderRadius: 8, marginBottom: 14 }}>
+          Sin partidas. El monto del contrato se calcula sumando todos los conceptos.
         </div>
       )}
-      {monto !== 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "12px 14px", background: T.bg, borderRadius: 8, border: "1px solid " + T.border, marginTop: 14 }}>
-          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>Contrato actualizado</div><Mn color={T.green} size={13}>{fmt.currency(proyC)}</Mn></div>
-          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>Varianza vs techo</div><Mn color={sob ? T.red : T.green} size={13}>{fmt.currency(fmt.num(obra.presupuestoAutorizado) - proyO)}</Mn></div>
+      {f.partidas.map((p, pi) => {
+        const subtotalPartida = p.conceptos.reduce((s, c) => s + fmt.num(c.cantContratada) * fmt.num(c.precioUnitario), 0);
+        return (
+          <div key={p.id} style={{ background: "#0D0C22", border: "1px solid #1E1E50", borderRadius: 9, marginBottom: 10, overflow: "hidden" }}>
+            <div style={{ padding: "11px 14px", display: "flex", gap: 10, alignItems: "center", borderBottom: "1px solid #1E1E50", flexWrap: "wrap" }}>
+              <input className="inf" value={p.nombre} onChange={e => upP(p.id, "nombre", e.target.value)} placeholder={"Partida " + (pi + 1)} style={{ flex: 1, minWidth: 160, fontSize: 13, fontWeight: 600 }} />
+              {techoParamPartidas.length > 0 && (
+                <select className="inf" value={p.parametricaRef || ""} onChange={e => upP(p.id, "parametricaRef", e.target.value)}
+                  style={{ fontSize: 11, padding: "5px 8px", minWidth: 180, color: p.parametricaRef ? "#0BCDD3" : "#6A8AB5" }}>
+                  <option value="">Sin vinculación paramétrica</option>
+                  {techoParamPartidas.map(tp2 => <option key={tp2.id} value={tp2.id}>{tp2.nombre} ({tp2.tipo || "HC"})</option>)}
+                </select>
+              )}
+              {subtotalPartida > 0 && <span style={{ fontFamily: "JetBrains Mono", fontSize: 12, color: "#0BCDD3", whiteSpace: "nowrap" }}>{fmtDec(subtotalPartida)}</span>}
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "4px 8px", borderRadius: 5, background: p.noEjecutable ? "rgba(232,52,74,.1)" : "transparent", border: p.noEjecutable ? "1px solid rgba(232,52,74,.3)" : "1px solid transparent" }}>
+                <input type="checkbox" checked={p.noEjecutable || false} onChange={e => upP(p.id, "noEjecutable", e.target.checked)} style={{ accentColor: "#E8344A", cursor: "pointer" }} />
+                <span style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: p.noEjecutable ? "#E8344A" : "#6A8AB5", textTransform: "uppercase", whiteSpace: "nowrap" }}>No ejecutable</span>
+              </label>
+              <button className="ab d" onClick={() => delP(p.id)}>✕</button>
+            </div>
+            {p.conceptos.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "#080818" }}>
+                      {["Descripción", "Unidad", "Cantidad", "P.U.", "Total", ""].map(h => (
+                        <th key={h} style={{ padding: "8px 11px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500, borderBottom: "1px solid #1E1E50" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.conceptos.map(cn => {
+                      const tot = fmt.num(cn.cantContratada) * fmt.num(cn.precioUnitario);
+                      return (
+                        <tr key={cn.id} style={{ borderBottom: "1px solid #1E1E50" }}>
+                          <td style={{ padding: "7px 11px" }}>
+                            <input className="inf" value={cn.descripcion} onChange={e => upC(p.id, cn.id, "descripcion", e.target.value)} placeholder="Descripción" style={{ fontSize: 12, padding: "5px 9px" }} />
+                          </td>
+                          <td style={{ padding: "7px 9px", width: 76 }}>
+                            <select className="inf" value={cn.unidad} onChange={e => upC(p.id, cn.id, "unidad", e.target.value)} style={{ fontSize: 12, padding: "5px 7px" }}>
+                              {["m²","m³","ml","pza","kg","ton","lt","hr","gl","lote"].map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                          </td>
+                          <td style={{ padding: "7px 9px", width: 100 }}>
+                            <input className="inf" value={cn.cantContratada} onChange={e => upC(p.id, cn.id, "cantContratada", e.target.value)} type="number" placeholder="0" style={{ fontSize: 12, padding: "5px 9px" }} />
+                          </td>
+                          <td style={{ padding: "7px 9px", width: 130 }}>
+                            <input className="inf" value={cn.precioUnitario} onChange={e => upC(p.id, cn.id, "precioUnitario", e.target.value)} type="number" placeholder="0.00" style={{ fontSize: 12, padding: "5px 9px" }} />
+                          </td>
+                          <td style={{ padding: "7px 11px", whiteSpace: "nowrap", fontFamily: "JetBrains Mono", fontSize: 12, color: tot > 0 ? "#0BCDD3" : "#5A6A90", fontWeight: tot > 0 ? 600 : 400 }}>
+                            {tot > 0 ? fmtDec(tot) : "—"}
+                          </td>
+                          <td style={{ padding: "7px 9px" }}><button className="ab d" onClick={() => delC(p.id, cn.id)}>✕</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ padding: "9px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button className="ab" onClick={() => addC(p.id)}>+ Concepto</button>
+            </div>
+          </div>
+        );
+      })}
+
+      {montoCalculado > 0 && (
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 4px", borderTop: "2px solid #1E1E50", marginTop: 4 }}>
+          <span style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, color: "#E8EDF8" }}>TOTAL DEL CONTRATO</span>
+          <span style={{ fontFamily: "JetBrains Mono", fontWeight: 700, fontSize: 15, color: "#0BCDD3" }}>{fmtDec(montoCalculado)}</span>
         </div>
       )}
-      <MFooter onClose={onClose} onSave={() => ok && onSave({ ...f, montoDelta: monto, descripcion: f.descripcion, adjuntoNombre: f.adjuntoNombre, adjuntoUrl: f.adjuntoUrl, id: uid() })} label="Registrar Convenio" disabled={!ok} />
+
+      {!ok && montoCalculado === 0 && f.partidas.length > 0 && (
+        <div style={{ fontSize: 12, color: "#F0B429", padding: "8px 0" }}>⚠ Agrega cantidades y precios unitarios a los conceptos para calcular el monto.</div>
+      )}
+
+      <MFooter onClose={onClose} onSave={save} label={edit ? "Actualizar Contrato" : "Registrar Contrato"} disabled={!ok} />
     </Modal>
   );
 }
@@ -1072,7 +984,7 @@ function Dashboard({ data }) {
   const sems = obras.reduce((a, { o }) => { a[calcO(o).sem]++; return a; }, { green: 0, yellow: 0, red: 0 });
 
   return (
-    <div className="fade-in" style={{ padding: "28px 32px" }}>
+    <div className="fade-in" style={{ padding: "24px 28px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 26 }}>
         <div>
           <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 24, letterSpacing: "-0.01em", marginBottom: 3 }}>Dashboard General</div>
@@ -1221,6 +1133,366 @@ function Dashboard({ data }) {
 // ─── VISTA OBRA ──────────────────────────────────────────────────
 
 // ── FORM: Cambio de Año ──────────────────────────────────────────
+
+// ── HC/SC CONFIG ─────────────────────────────────────────────────
+var TIPOS_COSTO = [
+  { value: "HC", label: "Hard Cost (HC)", color: "#2B6FD4" },
+  { value: "SC", label: "Soft Cost (SC)", color: "#F0B429" }
+];
+
+// ── DETALLE CONVENIO ─────────────────────────────────────────────
+function DetalleConvenio({ convenio, contrato, onClose }) {
+  var clasifColors = { modificacion: "#2B6FD4", omision: "#F0B429", situacion_fisica: "#E07428", mala_ejecucion: "#E8344A" };
+  var clasifLabels = { modificacion: "Modificación de Proyecto", omision: "Omisión de Proyecto", situacion_fisica: "Situación Física de Obra", mala_ejecucion: "Mala Ejecución" };
+  var color = clasifColors[convenio.clasificacion] || "#5A6A90";
+  return (
+    <Modal title={"Convenio #" + convenio.numero + " — Detalle"} onClose={onClose} wide>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, marginBottom: 20, padding: 16, background: "#080818", borderRadius: 10, border: "1px solid #1E1E50" }}>
+        <div>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 5 }}>Contratista</div>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{contrato.contratista}</div>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#6A8AB5" }}>{contrato.numero} · {fmt.date(convenio.fecha)}</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 5 }}>Monto Delta</div>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 22, color: fmt.num(convenio.montoDelta) >= 0 ? "#E8344A" : "#00A86B" }}>
+            {fmt.num(convenio.montoDelta) >= 0 ? "+" : ""}{fmt.currency(convenio.montoDelta)}
+          </div>
+        </div>
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 8 }}>Clasificación</div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 9, background: color + "18", border: "1px solid " + color + "40", borderRadius: 8, padding: "8px 14px" }}>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "inline-block" }} />
+          <span style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13, color: color }}>{clasifLabels[convenio.clasificacion] || convenio.clasificacion}</span>
+        </div>
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 8 }}>Causa</div>
+        <div style={{ background: "#080818", borderRadius: 8, padding: "12px 16px", border: "1px solid #1E1E50", fontSize: 13, color: "#A0B8D8", lineHeight: 1.7 }}>{convenio.justificacion || "—"}</div>
+      </div>
+      {convenio.descripcion && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 8 }}>Descripción Técnica</div>
+          <div style={{ background: "#080818", borderRadius: 8, padding: "14px 16px", border: "1px solid #1E1E50", fontSize: 13, color: "#E8EDF8", lineHeight: 1.8, whiteSpace: "pre-wrap" }}>{convenio.descripcion}</div>
+        </div>
+      )}
+      {convenio.adjuntoUrl ? (
+        <div style={{ background: "rgba(11,205,211,.06)", border: "1px solid rgba(11,205,211,.2)", borderRadius: 10, padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+          <div style={{ fontSize: 22, flexShrink: 0 }}>📎</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 14, marginBottom: 3 }}>{convenio.adjuntoNombre || "Documento adjunto"}</div>
+            <div style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#6A8AB5", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{convenio.adjuntoUrl}</div>
+          </div>
+          <a href={convenio.adjuntoUrl} target="_blank" rel="noopener noreferrer"
+            style={{ background: "linear-gradient(135deg,#0BCDD3,#089AA0)", color: "#fff", fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, padding: "9px 18px", borderRadius: 7, textDecoration: "none", flexShrink: 0 }}>
+            Abrir →
+          </a>
+        </div>
+      ) : (
+        <div style={{ padding: "12px 16px", background: "#080818", borderRadius: 8, border: "1px dashed #1E1E50", display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
+          <span style={{ color: "#6A8AB5" }}>📎</span>
+          <span style={{ fontSize: 12, color: "#6A8AB5" }}>Sin documentos adjuntos.</span>
+        </div>
+      )}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button className="bg2" onClick={onClose}>Cerrar</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ── FConvenio ────────────────────────────────────────────────────
+function FConvenio({ contrato, obra, onSave, onClose }) {
+  const fmtDec = n => new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",minimumFractionDigits:2,maximumFractionDigits:2}).format(n||0);
+  const [f, setF] = useState({
+    numero: (contrato.convenios?.length || 0) + 1,
+    fecha: "", clasificacion: "", justificacion: "", descripcion: "", adjuntoNombre: "", adjuntoUrl: "",
+    partidas: []
+  });
+  const s = (k, v) => setF(x => ({ ...x, [k]: v }));
+
+  // Partidas management
+  const addP = () => s("partidas", [...f.partidas, { id: uid(), nombre: "", tipo: contrato.tipoContrato || "HC", conceptos: [] }]);
+  const upP = (pid, k, v) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, [k]: v } : p));
+  const delP = (pid) => s("partidas", f.partidas.filter(p => p.id !== pid));
+  const addC = (pid) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: [...p.conceptos, { id: uid(), descripcion: "", unidad: "m²", cantContratada: "", precioUnitario: "" }] } : p));
+  const upC = (pid, cid, k, v) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: p.conceptos.map(c => c.id === cid ? { ...c, [k]: v } : c) } : p));
+  const delC = (pid, cid) => s("partidas", f.partidas.map(p => p.id === pid ? { ...p, conceptos: p.conceptos.filter(c => c.id !== cid) } : p));
+
+  // Auto-calculate monto from partidas
+  const montoCalculado = f.partidas.reduce((s, p) => s + p.conceptos.reduce((s2, c) => s2 + fmt.num(c.cantContratada) * fmt.num(c.precioUnitario), 0), 0);
+
+  const ccActual = calcC(contrato);
+  const proyC = ccActual.ma + montoCalculado;
+  const otrosC = (obra.contratos || []).filter(c => c.id !== contrato.id).reduce((sum, c) => sum + calcC(c).ma, 0);
+  const proyO = otrosC + proyC;
+  const sob = proyO > fmt.num(obra.presupuestoAutorizado);
+  const ok = f.fecha && f.justificacion && f.clasificacion && montoCalculado > 0;
+
+  return (
+    <Modal title={"Convenio #" + f.numero + " — " + contrato.contratista} onClose={onClose} wide>
+      {sob && <ABox msg={"Sobrecosto de " + fmt.currency(proyO - fmt.num(obra.presupuestoAutorizado)) + " sobre el techo"} />}
+
+      <G3>
+        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => s("fecha", v)} type="date" /></Field>
+        <Field label="Clasificación" req>
+          <Sel value={f.clasificacion} onChange={v => s("clasificacion", v)} options={CLASIFS.map(c => ({ value: c.value, label: c.label }))} />
+        </Field>
+        <Field label="Monto Convenio" hint="Calculado automáticamente">
+          <div style={{ padding: "10px 13px", background: "#080818", border: "1px solid " + (montoCalculado > 0 ? "#0BCDD3" : "#1E1E50"), borderRadius: 7, fontFamily: "JetBrains Mono", fontSize: 14, color: montoCalculado > 0 ? "#0BCDD3" : "#6A8AB5", fontWeight: 700 }}>
+            {montoCalculado > 0 ? fmtDec(montoCalculado) : "—"}
+          </div>
+        </Field>
+      </G3>
+
+      <Field label="Causa (resumen)" req hint="Resumen breve — aparece en reportes">
+        <Txta value={f.justificacion} onChange={v => s("justificacion", v)} placeholder="Causa que origina el convenio…" rows={2} />
+      </Field>
+      <div style={{ marginBottom: 12 }} />
+      <Field label="Descripción Técnica" hint="Detalle completo de la condición, alcance del cambio, impacto">
+        <Txta value={f.descripcion} onChange={v => s("descripcion", v)} placeholder="Condición física, trabajos adicionales, alcance…" rows={3} />
+      </Field>
+
+      <div className="divider" />
+      <SecTitle>Documento de Soporte</SecTitle>
+      <G2>
+        <Field label="Nombre del Documento"><Inp value={f.adjuntoNombre} onChange={v => s("adjuntoNombre", v)} placeholder="Ej. Croquis cimentación norte" /></Field>
+        <Field label="Link del Archivo" hint="Google Drive, OneDrive, Dropbox"><Inp value={f.adjuntoUrl} onChange={v => s("adjuntoUrl", v)} placeholder="https://drive.google.com/..." /></Field>
+      </G2>
+
+      <div className="divider" />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <SecTitle>Partidas y Conceptos del Convenio</SecTitle>
+        <button className="bg2" onClick={addP} style={{ fontSize: 12, padding: "6px 12px" }}>+ Partida</button>
+      </div>
+      {f.partidas.length === 0 && (
+        <div style={{ textAlign: "center", padding: "18px", color: "#6A8AB5", fontSize: 13, border: "1px dashed #1E1E50", borderRadius: 8, marginBottom: 14 }}>
+          Agrega las partidas del convenio. El monto se calcula automáticamente.
+        </div>
+      )}
+      {f.partidas.map((p, pi) => {
+        const subP = p.conceptos.reduce((s, c) => s + fmt.num(c.cantContratada) * fmt.num(c.precioUnitario), 0);
+        return (
+          <div key={p.id} style={{ background: "#0D0C22", border: "1px solid #1E1E50", borderRadius: 9, marginBottom: 10, overflow: "hidden" }}>
+            <div style={{ padding: "11px 14px", display: "flex", gap: 10, alignItems: "center", borderBottom: "1px solid #1E1E50" }}>
+              <input className="inf" value={p.nombre} onChange={e => upP(p.id, "nombre", e.target.value)} placeholder={"Partida " + (pi + 1)} style={{ flex: 1, fontSize: 13, fontWeight: 600 }} />
+              {subP > 0 && <Mn color="#0BCDD3" size={12}>{fmtDec(subP)}</Mn>}
+              <button className="ab d" onClick={() => delP(p.id)}>✕</button>
+            </div>
+            {p.conceptos.length > 0 && (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "#080818" }}>
+                      {["Descripción","Unidad","Cantidad","P.U.","Total",""].map(h => (
+                        <th key={h} style={{ padding: "8px 11px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", fontWeight: 500, borderBottom: "1px solid #1E1E50" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.conceptos.map(cn => {
+                      const tot = fmt.num(cn.cantContratada) * fmt.num(cn.precioUnitario);
+                      return (
+                        <tr key={cn.id} style={{ borderBottom: "1px solid #1E1E50" }}>
+                          <td style={{ padding: "7px 11px" }}><input className="inf" value={cn.descripcion} onChange={e => upC(p.id, cn.id, "descripcion", e.target.value)} placeholder="Descripción" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
+                          <td style={{ padding: "7px 9px", width: 76 }}>
+                            <select className="inf" value={cn.unidad} onChange={e => upC(p.id, cn.id, "unidad", e.target.value)} style={{ fontSize: 12, padding: "5px 7px" }}>
+                              {["m²","m³","ml","pza","kg","ton","lt","hr","gl","lote","%","global"].map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                          </td>
+                          <td style={{ padding: "7px 9px", width: 100 }}><input className="inf" value={cn.cantContratada} onChange={e => upC(p.id, cn.id, "cantContratada", e.target.value)} type="number" placeholder="0" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
+                          <td style={{ padding: "7px 9px", width: 130 }}><input className="inf" value={cn.precioUnitario} onChange={e => upC(p.id, cn.id, "precioUnitario", e.target.value)} type="number" placeholder="0.00" style={{ fontSize: 12, padding: "5px 9px" }} /></td>
+                          <td style={{ padding: "7px 11px", fontFamily: "JetBrains Mono", fontSize: 12, color: tot > 0 ? "#0BCDD3" : "#6A8AB5", fontWeight: tot > 0 ? 600 : 400 }}>{tot > 0 ? fmtDec(tot) : "—"}</td>
+                          <td style={{ padding: "7px 9px" }}><button className="ab d" onClick={() => delC(p.id, cn.id)}>✕</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ padding: "9px 14px" }}><button className="ab" onClick={() => addC(p.id)}>+ Concepto</button></div>
+          </div>
+        );
+      })}
+
+      {montoCalculado > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "12px 14px", background: "#080818", borderRadius: 8, border: "1px solid #1E1E50", marginTop: 8 }}>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", marginBottom: 4, textTransform: "uppercase" }}>Monto del Convenio</div><Mn color="#0BCDD3" size={13}>{fmtDec(montoCalculado)}</Mn></div>
+          <div><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", marginBottom: 4, textTransform: "uppercase" }}>Varianza vs Techo</div><Mn color={sob ? "#E8344A" : "#00A86B"} size={13}>{fmt.currency(fmt.num(obra.presupuestoAutorizado) - proyO)}</Mn></div>
+        </div>
+      )}
+
+      <MFooter onClose={onClose} onSave={() => ok && onSave({ ...f, montoDelta: montoCalculado, partidas: f.partidas, id: uid() })} label="Registrar Convenio" disabled={!ok} />
+    </Modal>
+  );
+}
+
+
+// ── DETALLE DEDUCTIVA ────────────────────────────────────────────
+function DetalleDeductiva({ deductiva, contrato, onClose }) {
+  return (
+    <Modal title={"Deductiva #" + deductiva.numero + " — Detalle"} onClose={onClose} wide>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, marginBottom: 20, padding: 16, background: "#080818", borderRadius: 10, border: "1px solid #1E1E50" }}>
+        <div>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 5 }}>Contrato</div>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{contrato.contratista}</div>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#6A8AB5" }}>{contrato.numero} · {fmt.date(deductiva.fecha)}</div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 5 }}>Monto Deductiva</div>
+          <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 22, color: "#00A86B" }}>{fmt.currency(deductiva.montoTotal)}</div>
+          <Tag label={deductiva.estado} color={deductiva.estado === "aprobada" ? "#00A86B" : "#F0B429"} />
+        </div>
+      </div>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 8 }}>Motivo</div>
+        <div style={{ background: "#080818", borderRadius: 8, padding: "12px 16px", border: "1px solid #1E1E50", fontSize: 13, color: "#E8EDF8", lineHeight: 1.75, whiteSpace: "pre-wrap" }}>{deductiva.descripcion}</div>
+      </div>
+      <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", textTransform: "uppercase", marginBottom: 10 }}>Conceptos Deducidos</div>
+      <div style={{ background: "#080818", border: "1px solid #1E1E50", borderRadius: 9, overflow: "hidden", marginBottom: 16 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: "#0D0C22" }}>
+              {["Concepto", "Unidad", "Cantidad", "P.U.", "Monto"].map(h => (
+                <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {(deductiva.conceptos || []).map((c, i) => (
+              <tr key={i} style={{ borderTop: "1px solid #1E1E50" }}>
+                <td style={{ padding: "10px 14px", fontWeight: 500 }}>{c.descripcion}</td>
+                <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono", fontSize: 11, color: "#6A8AB5" }}>{c.unidad}</td>
+                <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#F0B429" }}>{fmt.num(c.cantidadDeducida).toLocaleString()}</td>
+                <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono", fontSize: 12 }}>{fmt.currency(c.precioUnitario)}</td>
+                <td style={{ padding: "10px 14px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, color: "#00A86B" }}>{fmt.currency(c.montoDeductiva)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr style={{ borderTop: "2px solid #1E1E50", background: "#0D0C22" }}>
+              <td colSpan={4} style={{ padding: "11px 14px", fontFamily: "Work Sans", fontWeight: 700, fontSize: 12 }}>TOTAL</td>
+              <td style={{ padding: "11px 14px", fontFamily: "Work Sans", fontWeight: 800, fontSize: 15, color: "#00A86B" }}>{fmt.currency(deductiva.montoTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button className="bg2" onClick={onClose}>Cerrar</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ── FDeductiva ───────────────────────────────────────────────────
+function FDeductiva({ contrato, obra, onSave, onClose }) {
+  const numeroSig = (contrato.deductivas?.length || 0) + 1;
+  const [f, setF] = useState({ numero: numeroSig, fecha: new Date().toISOString().slice(0, 10), descripcion: "", estado: "aprobada" });
+  const [cantidades, setCantidades] = useState({});
+  const [errores, setErrores] = useState({});
+  const sf = (k, v) => setF(x => ({ ...x, [k]: v }));
+  const allConceptos = [];
+  (contrato.partidas || []).forEach(p => p.conceptos.forEach(c => allConceptos.push({ ...c, partidaNombre: p.nombre })));
+
+  function setCantidad(cid, val) {
+    const concepto = allConceptos.find(c => c.id === cid);
+    if (!concepto) return;
+    const disponible = cantDisponibleDeducir(contrato, concepto);
+    const num = fmt.num(val);
+    const newErr = { ...errores };
+    if (num > disponible) {
+      newErr[cid] = "Máximo deducible: " + disponible.toLocaleString() + " " + concepto.unidad + " (" + fmt.num(concepto.cantContratada).toLocaleString() + " contratadas - " + cantDeducidaConcepto(contrato, cid).toLocaleString() + " ya deducidas)";
+    } else {
+      delete newErr[cid];
+    }
+    setErrores(newErr);
+    setCantidades(prev => ({ ...prev, [cid]: val }));
+  }
+
+  const hayErrores = Object.keys(errores).length > 0;
+  const conceptosAfect = allConceptos.filter(c => fmt.num(cantidades[c.id]) > 0);
+  const montoTotal = conceptosAfect.reduce((s, c) => s - Math.min(fmt.num(cantidades[c.id]), cantDisponibleDeducir(contrato, c)) * fmt.num(c.precioUnitario), 0);
+  const ok = f.fecha && f.descripcion && conceptosAfect.length > 0 && !hayErrores;
+
+  function save() {
+    if (!ok) return;
+    const conceptosDed = conceptosAfect.map(c => ({ conceptoId: c.id, descripcion: c.descripcion, unidad: c.unidad, cantidadDeducida: fmt.num(cantidades[c.id]), precioUnitario: fmt.num(c.precioUnitario), montoDeductiva: -(fmt.num(cantidades[c.id]) * fmt.num(c.precioUnitario)) }));
+    onSave({ ...f, conceptos: conceptosDed, montoTotal, id: uid() });
+  }
+
+  return (
+    <Modal title={"Deductiva #" + numeroSig + " — " + contrato.contratista} onClose={onClose} wide>
+      <ABox msg="No se puede deducir más de la cantidad contratada disponible. El sistema bloqueará cantidades fuera de rango." color="#F0B429" />
+      <G3>
+        <Field label="Fecha" req><Inp value={f.fecha} onChange={v => sf("fecha", v)} type="date" /></Field>
+        <Field label="Estado"><Sel value={f.estado} onChange={v => sf("estado", v)} options={[{ value: "aprobada", label: "Aprobada" }, { value: "pendiente", label: "Pendiente" }]} /></Field>
+        <Field label="Monto Total Deductiva">
+          <div style={{ padding: "10px 13px", background: "#080818", border: "1px solid #1E1E50", borderRadius: 7, fontFamily: "JetBrains Mono", fontSize: 14, color: montoTotal < 0 ? "#00A86B" : "#6A8AB5", fontWeight: 700 }}>
+            {montoTotal < 0 ? fmt.currency(montoTotal) : "—"}
+          </div>
+        </Field>
+      </G3>
+      <Field label="Descripción del Motivo" req hint="Por qué se genera esta deductiva">
+        <Txta value={f.descripcion} onChange={v => sf("descripcion", v)} placeholder="Describe el motivo, trabajos que se reducen o eliminan…" rows={3} />
+      </Field>
+      <div className="divider" />
+      <SecTitle>Conceptos a Deducir</SecTitle>
+      {allConceptos.length === 0 ? (
+        <div style={{ color: "#6A8AB5", fontSize: 13, padding: "16px 0" }}>El contrato no tiene conceptos registrados.</div>
+      ) : (
+        <div style={{ background: "#080818", border: "1px solid #1E1E50", borderRadius: 9, overflow: "hidden", marginBottom: 16 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: "#0D0C22" }}>
+                {["Concepto", "Partida", "Contratado", "Ya Ded.", "Disponible", "A Deducir", "Monto"].map(h => (
+                  <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allConceptos.map(c => {
+                const yaDeducido = cantDeducidaConcepto(contrato, c.id);
+                const disponible = cantDisponibleDeducir(contrato, c);
+                const qty = fmt.num(cantidades[c.id] || 0);
+                const error = errores[c.id];
+                return (
+                  <React.Fragment key={c.id}>
+                    <tr style={{ borderTop: "1px solid #1E1E50", background: error ? "rgba(232,52,74,.05)" : qty > 0 ? "rgba(0,168,107,.05)" : "transparent" }}>
+                      <td style={{ padding: "9px 12px" }}>{c.descripcion}</td>
+                      <td style={{ padding: "9px 12px", color: "#6A8AB5", fontSize: 11 }}>{c.partidaNombre}</td>
+                      <td style={{ padding: "9px 12px", fontFamily: "JetBrains Mono", fontSize: 11 }}>{fmt.num(c.cantContratada).toLocaleString()} {c.unidad}</td>
+                      <td style={{ padding: "9px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: yaDeducido > 0 ? "#F0B429" : "#6A8AB5" }}>{yaDeducido > 0 ? yaDeducido.toLocaleString() : "—"}</td>
+                      <td style={{ padding: "9px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: disponible <= 0 ? "#E8344A" : "#00A86B", fontWeight: 600 }}>{disponible <= 0 ? "AGOTADO" : disponible.toLocaleString() + " " + c.unidad}</td>
+                      <td style={{ padding: "9px 10px", width: 110 }}>
+                        {disponible <= 0 ? <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "#E8344A", padding: "5px 8px" }}>—</div> : (
+                          <input className="inf" value={cantidades[c.id] || ""} onChange={e => setCantidad(c.id, e.target.value)} type="number" min="0" max={disponible} placeholder="0"
+                            style={{ fontSize: 12, padding: "5px 8px", borderColor: error ? "#E8344A" : qty > 0 ? "#00A86B" : "#1E1E50" }} />
+                        )}
+                      </td>
+                      <td style={{ padding: "9px 12px", fontFamily: "JetBrains Mono", fontSize: 12, color: qty > 0 ? "#00A86B" : "#6A8AB5" }}>
+                        {qty > 0 ? "- " + fmt.currency(qty * fmt.num(c.precioUnitario)) : "—"}
+                      </td>
+                    </tr>
+                    {error && (
+                      <tr style={{ background: "rgba(232,52,74,.08)" }}>
+                        <td colSpan={7} style={{ padding: "6px 12px 8px", fontSize: 11, color: "#E8344A" }}>🚫 {error}</td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {hayErrores && <ABox msg="Acción bloqueada. Corrige las cantidades marcadas antes de continuar." />}
+      <MFooter onClose={onClose} onSave={save} label={"Registrar Deductiva #" + numeroSig} disabled={!ok} />
+    </Modal>
+  );
+}
+
 function FCambioAño({obra,onSave,onClose}){
   const añoActual=obra.añoAutorizacion||new Date().getFullYear();
   const[f,setF]=useState({añoNuevo:"",fecha:new Date().toISOString().slice(0,10),motivo:""});
@@ -1228,7 +1500,7 @@ function FCambioAño({obra,onSave,onClose}){
   const ok=f.añoNuevo&&f.fecha&&f.motivo&&parseInt(f.añoNuevo)!==añoActual;
   const años=[2023,2024,2025,2026,2027,2028,2029,2030].filter(y=>y!==añoActual);
   return(
-    <Modal title={'Cambio de Año — ${obra.nombre}'} onClose={onClose}>
+    <Modal title={"Cambio de Año — " + (obra.nombre)} onClose={onClose}>
       <div style={{background:"rgba(240,180,41,.08)",border:"1px solid rgba(240,180,41,.3)",borderRadius:8,padding:"12px 16px",marginBottom:18,display:"flex",gap:10,alignItems:"flex-start"}}>
         <span style={{color:"#F0B429",fontSize:16}}>⚡</span>
         <div>
@@ -1263,7 +1535,18 @@ function VistaObra({ obraData, onUpdate }) {
   const [modal, setModal] = useState(null);
   const oc = calcO(obra);
 
-  const saveP = p => { onUpdate(unidad.id, plaza.id, { ...obra, parametricos: [...(obra.parametricos || []), p].sort((a, b) => b.clase - a.clase) }); setModal(null); };
+  const saveP = p => {
+    var updObra = { ...obra, parametricos: [...(obra.parametricos || []), p].sort((a, b) => b.clase - a.clase) };
+    if (p.esTecho) {
+      var histTechos = obra.historialTechos || [];
+      if (obra.presupuestoAutorizado && obra.presupuestoAutorizado !== p.monto) {
+        histTechos = [...histTechos, { techoAnterior: obra.presupuestoAutorizado, techoNuevo: p.monto, fecha: p.fecha, clase: p.clase, id: uid() }];
+      }
+      updObra = { ...updObra, presupuestoAutorizado: p.monto, historialTechos: histTechos };
+    }
+    onUpdate(unidad.id, plaza.id, updObra);
+    setModal(null);
+  };
   const saveC = c => { const ex = (obra.contratos || []).find(x => x.id === c.id); const cs = ex ? obra.contratos.map(x => x.id === c.id ? c : x) : [...(obra.contratos || []), c]; onUpdate(unidad.id, plaza.id, { ...obra, contratos: cs }); setModal(null); };
   const saveCV = (cid, cv) => { const cs = obra.contratos.map(c => c.id === cid ? { ...c, convenios: [...(c.convenios || []), cv] } : c); onUpdate(unidad.id, plaza.id, { ...obra, contratos: cs }); setModal(null); };
   const saveDed = (cid, ded) => { const cs = obra.contratos.map(c => c.id === cid ? { ...c, deductivas: [...(c.deductivas || []), ded] } : c); onUpdate(unidad.id, plaza.id, { ...obra, contratos: cs }); setModal(null); };
@@ -1276,10 +1559,10 @@ function VistaObra({ obraData, onUpdate }) {
   const añoActual = obra.añoAutorizacion || new Date().getFullYear();
   const historial = obra.historialAños || [];
 
-  const TABS = [{ id: "resumen", l: "Resumen" }, { id: "parametricos", l: "Paramétricos" }, { id: "contratos", l: 'Contratos (${(obra.contratos || []).length})' }, { id: "flujo", l: "Flujo" }, { id: "historial", l: 'Historial Año (${historial.length})' }];
+  const TABS = [{ id: "resumen", l: "Resumen" }, { id: "parametricos", l: "Paramétricos" }, { id: "contratos", l: "Contratos (" + ((obra.contratos || []).length) + ")" }, { id: "flujo", l: "Flujo" }, { id: "historial", l: "Historial Año (" + (historial.length) + ")" }];
 
   return (
-    <div className="fade-in" style={{ padding: "28px 32px" }}>
+    <div className="fade-in" style={{ padding: "24px 28px" }}>
       {modal?.type === "cambioAño" && <FCambioAño obra={obra} onSave={saveCambioAño} onClose={() => setModal(null)} />}
       {modal?.type === "deductiva" && <FDeductiva contrato={modal.c} obra={obra} onSave={ded => saveDed(modal.c.id, ded)} onClose={() => setModal(null)} />}
       {modal?.type === "detalleDeductiva" && <DetalleDeductiva deductiva={modal.ded} contrato={modal.c} onClose={() => setModal(null)} />}
@@ -1341,7 +1624,7 @@ function VistaObra({ obraData, onUpdate }) {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid " + T.border, marginBottom: 22 }}>
-        {TABS.map(t => <button key={t.id} className={'tb ${tab === t.id ? "on" : ""}'} onClick={() => setTab(t.id)}>{t.l}</button>)}
+        {TABS.map(t => <button key={t.id} className={"tb " + (tab === t.id ? "on" : "")} onClick={() => setTab(t.id)}>{t.l}</button>)}
       </div>
 
       {/* RESUMEN */}
@@ -1363,6 +1646,107 @@ function VistaObra({ obraData, onUpdate }) {
               );
             })}
           </div>
+
+          {/* Comparativo Paramétrico vs Contratado */}
+          {oc.comparativo && (
+            <div className="card" style={{ padding: 18, marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13 }}>Comparativo Paramétrico vs Contratado</div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {oc.comparativo.totalAhorro > 0 && <Tag label={"Ahorro: " + fmt.currency(oc.comparativo.totalAhorro)} color="#00A86B" />}
+                  {oc.comparativo.totalPendiente > 0 && <Tag label={"Pendiente: " + fmt.currency(oc.comparativo.totalPendiente)} color="#F0B429" />}
+                  {oc.comparativo.totalExtras > 0 && <Tag label={"Extras: " + fmt.currency(oc.comparativo.totalExtras)} color="#E8344A" />}
+                </div>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "#0D0C22" }}>
+                      {["Partida","Tipo","Paramétrico","Contratado","Varianza","Estado"].map(h => (
+                        <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {oc.comparativo.partidas.map(p => {
+                      var statusColor = { "ahorro": "#00A86B", "sobrecosto": "#E8344A", "pendiente": "#F0B429", "no-ejecutable": "#6A8AB5", "igual": "#0BCDD3" };
+                      var statusLabel = { "ahorro": "Ahorro", "sobrecosto": "Sobrecosto", "pendiente": "Pendiente", "no-ejecutable": "No Ejecutable", "igual": "Exacto" };
+                      return (
+                        <tr key={p.id} style={{ borderTop: "1px solid #1E1E50", opacity: p.noEjecutable ? 0.6 : 1 }}>
+                          <td style={{ padding: "10px 12px", fontWeight: 500, textDecoration: p.noEjecutable ? "line-through" : "none" }}>{p.nombre}</td>
+                          <td style={{ padding: "10px 12px" }}><span style={{ fontFamily: "JetBrains Mono", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: p.tipo === "HC" ? "rgba(43,111,212,.15)" : "rgba(240,180,41,.15)", color: p.tipo === "HC" ? "#2B6FD4" : "#F0B429" }}>{p.tipo}</span></td>
+                          <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#A0B8D8" }}>{fmt.currency(p.paramTotal)}</td>
+                          <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#0BCDD3" }}>{p.contTotal > 0 ? fmt.currency(p.contTotal) : "—"}</td>
+                          <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 12, color: statusColor[p.status] || "#6A8AB5" }}>{p.status !== "pendiente" && p.status !== "no-ejecutable" ? (p.varianza > 0 ? "+" : "") + fmt.currency(p.varianza) : "—"}</td>
+                          <td style={{ padding: "10px 12px" }}><Tag label={statusLabel[p.status] || p.status} color={statusColor[p.status] || "#6A8AB5"} /></td>
+                        </tr>
+                      );
+                    })}
+                    {oc.comparativo.extras.map((e, i) => (
+                      <tr key={"ext"+i} style={{ borderTop: "1px solid #1E1E50", background: "rgba(232,52,74,.04)" }}>
+                        <td style={{ padding: "10px 12px", color: "#E8344A" }}>{e.nombre}</td>
+                        <td style={{ padding: "10px 12px" }}>{e.tipo && <span style={{ fontFamily: "JetBrains Mono", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: e.tipo === "HC" ? "rgba(43,111,212,.15)" : "rgba(240,180,41,.15)", color: e.tipo === "HC" ? "#2B6FD4" : "#F0B429" }}>{e.tipo}</span>}</td>
+                        <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 11, color: "#6A8AB5" }}>Sin paramétrico</td>
+                        <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#E8344A" }}>{fmt.currency(e.monto)}</td>
+                        <td style={{ padding: "10px 12px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#E8344A" }}>-{fmt.currency(e.monto)}</td>
+                        <td style={{ padding: "10px 12px" }}><Tag label="Extra presupuestal" color="#E8344A" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* HC/SC summary (legacy) */}
+          {(oc.paramHC > 0 || oc.paramSC > 0 || oc.tcHC > 0 || oc.tcSC > 0) && !oc.comparativo && (
+            <div className="card" style={{ padding: 18, marginBottom: 14 }}>
+              <div style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13, marginBottom: 14 }}>HC vs SC — Paramétrico vs Contratado</div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: "#0D0C22" }}>
+                    {["Tipo","Paramétrico","Contratado","Varianza","Estado"].map(h => (
+                      <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A8AB5", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 500 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { label: "Hard Cost (HC)", color: "#2B6FD4", param: oc.paramHC, cont: oc.tcHC, sob: oc.sobrecostoHC },
+                    { label: "Soft Cost (SC)", color: "#F0B429", param: oc.paramSC, cont: oc.tcSC, sob: oc.sobrecostoSC },
+                    { label: "TOTAL", color: "#0BCDD3", param: oc.paramTotal, cont: oc.tc, sob: oc.varianza < 0 },
+                  ].map((row, i) => (
+                    <tr key={i} style={{ borderTop: "1px solid #1E1E50", background: i === 2 ? "#0D0C22" : "transparent" }}>
+                      <td style={{ padding: "10px 14px", fontFamily: "Work Sans", fontWeight: i === 2 ? 700 : 500, color: row.color }}>{row.label}</td>
+                      <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono", fontSize: 12, color: "#A0B8D8" }}>{row.param > 0 ? fmt.currency(row.param) : "—"}</td>
+                      <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono", fontSize: 12, color: row.color }}>{row.cont > 0 ? fmt.currency(row.cont) : "—"}</td>
+                      <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono", fontSize: 12, color: row.sob ? "#E8344A" : "#00A86B" }}>{row.param > 0 ? fmt.currency(row.param - row.cont) : "—"}</td>
+                      <td style={{ padding: "10px 14px" }}>{row.param > 0 ? <Tag label={row.sob ? "Sobrecosto" : "En Control"} color={row.sob ? "#E8344A" : "#00A86B"} /> : <span style={{ color: "#6A8AB5", fontSize: 12 }}>Sin paramétrico</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {/* Historial de Techo */}
+          {oc.historialTechos && oc.historialTechos.length > 0 && (
+            <div className="card" style={{ padding: 18, marginBottom: 14, border: "1px solid rgba(240,180,41,.2)", background: "rgba(240,180,41,.04)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <span style={{ fontSize: 16 }}>⚡</span>
+                <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 13, color: "#F0B429" }}>Historial de Actualizaciones de Techo</div>
+              </div>
+              {oc.historialTechos.map((h, i) => (
+                <div key={h.id || i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < oc.historialTechos.length - 1 ? "1px solid rgba(240,180,41,.15)" : "none" }}>
+                  <Mn color="#6A8AB5" size={11}>{fmt.date(h.fecha)}</Mn>
+                  <Tag label={"Clase " + h.clase} color="#6A8AB5" />
+                  <Mn color="#F0B429" size={13}>{fmt.currency(h.techoAnterior)}</Mn>
+                  <span style={{ color: "#6A8AB5", fontSize: 14 }}>→</span>
+                  <Mn color="#0BCDD3" size={13}>{fmt.currency(h.techoNuevo)}</Mn>
+                  <Mn color={h.techoNuevo > h.techoAnterior ? "#E8344A" : "#00A86B"} size={11}>({h.techoNuevo > h.techoAnterior ? "+" : ""}{fmt.currency(h.techoNuevo - h.techoAnterior)})</Mn>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="card" style={{ padding: 18 }}>
             <div style={{ fontFamily: "Work Sans", fontWeight: 600, fontSize: 13, marginBottom: 14 }}>Costos Adicionales</div>
             {Object.entries(oc.cl).filter(([, v]) => v > 0).length === 0 ? (
@@ -1405,7 +1789,7 @@ function VistaObra({ obraData, onUpdate }) {
                   const claseColor = [T.textMuted, T.green, T.yellow, T.blue, T.silver, T.textMuted][6 - p.clase] || T.textMuted;
                   return (
                     <tr key={i} style={{ borderTop: "1px solid " + T.border }}>
-                      <td style={{ padding: "11px 16px" }}><Tag label={'CLASE ${p.clase}'} color={claseColor} /></td>
+                      <td style={{ padding: "11px 16px" }}><Tag label={"CLASE " + (p.clase)} color={claseColor} /></td>
                       <td style={{ padding: "11px 16px" }}><Mn size={13}>{fmt.currency(p.monto)}</Mn></td>
                       <td style={{ padding: "11px 16px" }}><Mn color={v > 0 ? T.red : T.green} size={12}>{v > 0 ? "+" : ""}{fmt.pct(v)}</Mn></td>
                       <td style={{ padding: "11px 16px" }}><Mn color={T.textMuted} size={11}>{fmt.date(p.fecha)}</Mn></td>
@@ -1442,7 +1826,10 @@ function VistaObra({ obraData, onUpdate }) {
                       <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 14 }}>{c.contratista}</div>
                       <CtTag v={c.clasificacion} />
                     </div>
-                    <Mn color={T.textMuted} size={11}>{c.numero} · {fmt.date(c.fechaFirma)}</Mn>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Mn color={T.textMuted} size={11}>{c.numero} · {fmt.date(c.fechaFirma)}</Mn>
+                      {c.tipoContrato && <span style={{ fontFamily: "JetBrains Mono", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: c.tipoContrato === "HC" ? "rgba(43,111,212,.15)" : "rgba(240,180,41,.15)", color: c.tipoContrato === "HC" ? "#2B6FD4" : "#F0B429", border: "1px solid " + (c.tipoContrato === "HC" ? "rgba(43,111,212,.3)" : "rgba(240,180,41,.3)") }}>{c.tipoContrato}</span>}
+                    </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontFamily: "Work Sans", fontWeight: 700, fontSize: 18, color: T.blue }}>{fmt.currency(cv.ma)}</div>
@@ -1451,7 +1838,7 @@ function VistaObra({ obraData, onUpdate }) {
                   </div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 12 }}>
-                  {[{ l: "Monto Vigente", v: fmt.currency(cv.ma) }, { l: 'Anticipo ${c.anticipoPct}%', v: fmt.currency(cv.ant), acc: T.green }, { l: "Estimado", v: fmt.currency(cv.tb), acc: T.blue }, { l: "Neto Pagado", v: fmt.currency(cv.neto), acc: T.yellow }].map((k, i) => (
+                  {[{ l: "Monto Vigente", v: fmt.currency(cv.ma) }, { l: "Anticipo " + (c.anticipoPct) + "%", v: fmt.currency(cv.ant), acc: T.green }, { l: "Estimado", v: fmt.currency(cv.tb), acc: T.blue }, { l: "Neto Pagado", v: fmt.currency(cv.neto), acc: T.yellow }].map((k, i) => (
                     <div key={i}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>{k.l}</div><Mn color={k.acc} size={13}>{k.v}</Mn></div>
                   ))}
                   {cv.dedT < 0 && <div style={{ gridColumn: "span 2" }}><div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "#6A7DA0", marginBottom: 4, textTransform: "uppercase" }}>Deductivas ({(c.deductivas || []).length})</div><Mn color="#00A86B" size={13}>{fmt.currency(cv.dedT)}</Mn></div>}
@@ -1489,7 +1876,7 @@ function VistaObra({ obraData, onUpdate }) {
         const pagos = [];
         (obra.contratos || []).forEach(c => (c.estimaciones || []).forEach(e => {
           const b = fmt.num(e.subtotal), am = b * fmt.num(e.amortizacionAnticipo) / 100, r = b * fmt.num(e.retencion) / 100;
-          pagos.push({ fecha: e.fecha, desc: 'Est. #${e.numero}', neto: b - am - r, status: e.status, contratista: c.contratista, b, am, r });
+          pagos.push({ fecha: e.fecha, desc: "Est. #" + (e.numero), neto: b - am - r, status: e.status, contratista: c.contratista, b, am, r });
         }));
         pagos.sort((a, b) => a.fecha.localeCompare(b.fecha));
         const totPag = pagos.filter(p => p.status === "pagada").reduce((s, p) => s + p.neto, 0);
@@ -1569,7 +1956,7 @@ function VistaObra({ obraData, onUpdate }) {
 function VistaUnidad({ unidad, setView }) {
   const c = calcU(unidad);
   return (
-    <div className="fade-in" style={{ padding: "28px 32px" }}>
+    <div className="fade-in" style={{ padding: "24px 28px" }}>
       <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 22, color: unidad.color, marginBottom: 4 }}>{unidad.nombre}</div>
       <div style={{ color: "#6A7DA0", fontSize: 13, marginBottom: 24 }}>{unidad.plazas.length} plazas · {unidad.plazas.reduce((s, p) => s + p.obras.length, 0)} obras</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
@@ -1631,13 +2018,13 @@ function Portafolio({ data, setView }) {
   const conCambio = obrasFilt.filter(({ o }) => (o.historialAños || []).length > 0).length;
 
   return (
-    <div className="fade-in" style={{ padding: "28px 32px" }}>
+    <div className="fade-in" style={{ padding: "24px 28px" }}>
 
       {/* Header con filtro */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
         <div>
           <div style={{ fontFamily: "Work Sans", fontWeight: 800, fontSize: 24, letterSpacing: "-0.01em", marginBottom: 3 }}>Portafolio</div>
-          <div style={{ color: "#A0B8D8", fontSize: 13 }}>{obrasFilt.length} obra{obrasFilt.length !== 1 ? "s" : ""}{filtroAño !== "todos" ? ' · Año ${filtroAño}" : " de " + totalObras + " total"}</div>
+          <div style={{ color: "#A0B8D8", fontSize: 13 }}>{obrasFilt.length} obra{obrasFilt.length !== 1 ? "s" : ""}{filtroAño !== "todos" ? " · Año " + filtroAño : " de " + totalObras + " total"}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontFamily: "JetBrains Mono", fontSize: 10, color: "#7A92B5", letterSpacing: "0.08em", textTransform: "uppercase" }}>Año:</span>
@@ -1779,7 +2166,7 @@ function App() {
       {modal?.type === "plaza" && <FPlaza data={data} onSave={addPlaza} onClose={() => setModal(null)} />}
       {modal?.type === "obra" && <FObra data={data} onSave={addObra} onClose={() => setModal(null)} ctx={modal.ctx} />}
       <Sidebar view={view} setView={setView} data={data} onAddPlaza={() => setModal({ type: "plaza" })} onAddObra={ctx => setModal({ type: "obra", ctx })} />
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>{renderMain()}</div>
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minWidth: 0 }}>{renderMain()}</div>
     </div>
   );
 }
